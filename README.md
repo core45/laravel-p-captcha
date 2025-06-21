@@ -4,8 +4,8 @@ A sophisticated CAPTCHA package for Laravel applications featuring adaptive diff
 
 ## Features
 
-- **Multiple Challenge Types**: Beam alignment, pattern matching, sequence completion, and proof-of-work
-- **Adaptive Difficulty**: Automatically adjusts difficulty based on user performance
+- **Hidden Bot Detection**: Invisible CAPTCHA with honeypot fields, timing validation, and JavaScript checks
+- **Smart Visual Challenges**: Beam alignment and sequence completion only shown when bots are detected
 - **Modern UI**: Dark/light themes with smooth animations
 - **Mobile Friendly**: Touch-optimized for mobile devices
 - **High Performance**: Efficient caching and rate limiting
@@ -117,7 +117,25 @@ class ContactController extends Controller
 }
 ```
 
-That's it! The CAPTCHA will automatically appear after 2 failed form submissions.
+That's it! **Most users will never see a CAPTCHA challenge.** The system uses hidden bot detection techniques, and only shows visual challenges when suspicious behavior is detected.
+
+## How It Works
+
+**Hidden Bot Detection (Invisible to Users):**
+- **Honeypot Fields**: Hidden form fields that bots fill but humans don't see
+- **Timing Validation**: Detects forms submitted too quickly (likely bots)
+- **JavaScript Validation**: Ensures browser executes JavaScript properly
+- **Session Validation**: Checks session consistency and user agent
+
+**Visual Challenges (Only When Needed):**
+- **Beam Alignment**: Drag-and-drop challenge for suspected bots
+- **Sequence Completion**: Mathematical pattern recognition
+- **Adaptive Difficulty**: Gets harder with repeated failures
+
+**User Experience:**
+1. **Normal Users**: Complete forms without any CAPTCHA (invisible protection)
+2. **Suspected Bots**: Must complete visual challenge to proceed
+3. **Failed Attempts**: More challenges required for suspicious behavior
 
 ## Advanced Usage
 
@@ -196,9 +214,7 @@ The package configuration is located in `config/p-captcha.php`. Key settings inc
 ```php
 'challenge_types' => [
     'beam_alignment',    // Drag beam source to target
-    'pattern_match',     // Complete symbol patterns
     'sequence_complete', // Complete number sequences
-    'proof_of_work',     // Computational challenge
 ],
 ```
 
@@ -229,7 +245,91 @@ The package configuration is located in `config/p-captcha.php`. Key settings inc
 ],
 ```
 
-## Challenge Types
+## Bot Detection Methods
+
+The package uses multiple invisible techniques to detect bots before showing visual challenges:
+
+### 1. Honeypot Fields
+Hidden form fields that are invisible to users but filled by bots:
+```html
+<!-- These fields are positioned off-screen -->
+<input type="text" name="website" style="position:absolute;left:-10000px;">
+<input type="email" name="search_username" style="position:absolute;left:-10000px;">
+```
+
+### 2. Timing Validation
+Detects forms submitted suspiciously fast:
+- **Too Fast**: Forms submitted in less than 2 seconds (likely bot)
+- **Too Slow**: Forms submitted after 20 minutes (expired token)
+- **Normal**: 2 seconds to 20 minutes (human behavior)
+
+### 3. JavaScript Validation
+Ensures browser properly executes JavaScript:
+- Generates encrypted tokens via AJAX
+- Validates session consistency
+- Checks user agent matching
+
+### 4. Session Validation
+Verifies session integrity:
+- Session ID consistency
+- IP address validation
+- User agent matching
+- CSRF token validation
+
+### When Visual CAPTCHAs Appear
+
+**Visual challenges only appear when:**
+1. **Bot behavior detected** (honeypot filled, timing suspicious, etc.)
+2. **Multiple failed attempts** (after 3 failures for legitimate users)
+3. **JavaScript disabled** (suspicious behavior)
+4. **Invalid tokens** (tampered requests)
+
+**Normal users experience:**
+- No visible CAPTCHA challenges
+- Seamless form submission
+- Invisible protection
+
+## Force Visual CAPTCHA (Optional)
+
+You can force the visual CAPTCHA to always appear by setting this in your config:
+
+```php
+// In config/p-captcha.php
+'force_visual_captcha' => true,
+```
+
+**When to use this:**
+- **Testing**: Always see the CAPTCHA during development
+- **High Security**: Always require visual verification regardless of bot detection
+- **Demo Purposes**: Show the CAPTCHA functionality to clients
+- **Compliance**: Meet specific security requirements that mandate visible verification
+
+**With this setting enabled:**
+- All users will see visual challenges immediately
+- Hidden bot detection still runs in the background
+- Useful for extra security or testing scenarios
+
+**Environment-specific configuration:**
+```php
+// Always show in development for testing
+'force_visual_captcha' => env('APP_ENV') === 'local',
+
+// Or use a specific environment variable
+'force_visual_captcha' => env('PCAPTCHA_FORCE_VISUAL', false),
+```
+
+Then in your `.env` file:
+```bash
+# For testing/development
+PCAPTCHA_FORCE_VISUAL=true
+
+# For production (default)
+PCAPTCHA_FORCE_VISUAL=false
+```
+
+## Visual Challenge Types
+
+When bot behavior is detected, users may encounter these challenges:
 
 ### 1. Beam Alignment
 An innovative challenge where users drag a beam source to align with a target.
@@ -238,26 +338,12 @@ An innovative challenge where users drag a beam source to align with a target.
 - **Mobile**: Touch-optimized
 - **Accessibility**: Keyboard navigation support
 
-### 2. Pattern Matching
-Users must identify and complete visual patterns using symbols.
-
-- **Patterns**: Geometric shapes, arrows, card suits
-- **Difficulty**: Pattern complexity varies
-- **Cognitive**: Tests pattern recognition
-
-### 3. Sequence Completion
+### 2. Sequence Completion
 Mathematical sequence completion challenges.
 
 - **Types**: Arithmetic, geometric sequences
 - **Difficulty**: Number complexity varies
 - **Educational**: Engaging for users
-
-### 4. Proof of Work
-Computational challenges requiring hash calculations.
-
-- **Security**: Resistant to automated attacks
-- **Scalable**: Difficulty adjusts automatically
-- **Performance**: Balances security vs user experience
 
 ## Security Features
 

@@ -177,6 +177,81 @@ class PCaptchaController extends Controller
     }
 
     /**
+     * Generate hidden CAPTCHA token
+     *
+     * Route: POST /p-captcha/generate-token
+     */
+    public function generateToken(Request $request): JsonResponse
+    {
+        try {
+            // Rate limiting
+            $key = 'p-captcha-token:' . $request->ip();
+            $rateLimits = config('p-captcha.rate_limits.generate');
+
+            if (RateLimiter::tooManyAttempts($key, $rateLimits['max_attempts'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Too many requests. Please wait.'
+                ], 429);
+            }
+
+            RateLimiter::hit($key, $rateLimits['decay_minutes'] * 60);
+
+            // Validate request
+            $validated = $request->validate([
+                'timestamp' => 'required|integer',
+                'session_id' => 'required|string',
+                'user_agent' => 'required|string',
+                'field_name' => 'required|string|alpha_dash',
+                'field_value' => 'required|string'
+            ]);
+
+            // Create token data
+            $tokenData = [
+                'timestamp' => $validated['timestamp'],
+                'session_id' => $validated['session_id'],
+                'ip' => $request->ip(),
+                'user_agent' => $validated['user_agent'],
+                'field_name' => $validated['field_name'],
+                'field_value' => $validated['field_value']
+            ];
+
+            // Encrypt the token
+            $encryptedToken = encrypt($tokenData);
+
+            if (config('p-captcha.security.log_attempts', true)) {
+                Log::info('P-CAPTCHA hidden token generated', [
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent()
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'token' => $encryptedToken
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid request data',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('P-CAPTCHA token generation failed', [
+                'error' => $e->getMessage(),
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate token'
+            ], 500);
+        }
+    }
+
+    /**
      * Get CAPTCHA widget HTML
      *
      * Route: GET /p-captcha/widget

@@ -17,5 +17,8 @@ Route::post('/generate', [PCaptchaController::class, 'generate'])->name('p-captc
 Route::post('/validate', [PCaptchaController::class, 'validate'])->name('p-captcha.validate');
 Route::post('/refresh', [PCaptchaController::class, 'refresh'])->name('p-captcha.refresh');
 
+// Hidden CAPTCHA token generation
+Route::post('/generate-token', [PCaptchaController::class, 'generateToken'])->name('p-captcha.generate-token');
+
 // Widget rendering route
 Route::get('/widget', [PCaptchaController::class, 'widget'])->name('p-captcha.widget');

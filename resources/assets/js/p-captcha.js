@@ -69,14 +69,8 @@ class PCaptchaWidget {
             case 'beam_alignment':
                 this.renderBeamAlignment();
                 break;
-            case 'pattern_match':
-                this.renderPatternMatch();
-                break;
             case 'sequence_complete':
                 this.renderSequenceComplete();
-                break;
-            case 'proof_of_work':
-                this.renderProofOfWork();
                 break;
             default:
                 this.showError('Unknown challenge type');
@@ -230,39 +224,6 @@ class PCaptchaWidget {
         }
     }
 
-    renderPatternMatch() {
-        const data = this.currentChallenge.challenge_data;
-
-        let patternHtml = '<div class="pattern-display">';
-        data.pattern.forEach(symbol => {
-            patternHtml += `<span class="pattern-symbol">${symbol}</span>`;
-        });
-        patternHtml += '</div>';
-
-        patternHtml += '<div class="pattern-choices">';
-        data.choices.forEach((choice, index) => {
-            patternHtml += `<div class="pattern-choice" data-choice="${choice}" onclick="PCaptcha.selectPatternChoice('${this.containerId}', '${choice}')">${choice}</div>`;
-        });
-        patternHtml += '</div>';
-
-        this.challengeEl.innerHTML = patternHtml;
-    }
-
-    selectPatternChoice(choice) {
-        // Remove previous selection
-        this.container.querySelectorAll('.pattern-choice').forEach(el => {
-            el.classList.remove('selected');
-        });
-
-        // Select new choice
-        const choiceEl = this.container.querySelector(`[data-choice="${choice}"]`);
-        if (choiceEl) {
-            choiceEl.classList.add('selected');
-            this.solution = { answer: choice };
-            this.validateBtn.disabled = false;
-        }
-    }
-
     renderSequenceComplete() {
         const data = this.currentChallenge.challenge_data;
 
@@ -294,37 +255,6 @@ class PCaptchaWidget {
             choiceEl.classList.add('selected');
             this.solution = { answer: parseInt(choice) };
             this.validateBtn.disabled = false;
-        }
-    }
-
-    renderProofOfWork() {
-        const data = this.currentChallenge.challenge_data;
-
-        this.challengeEl.innerHTML = `
-            <div class="pow-container">
-                <p>Challenge: <strong>${data.challenge_string}</strong></p>
-                <p>Find a number that produces a hash starting with <strong>${data.target_zeros}</strong> zeros</p>
-                <input type="number"
-                       class="pow-input"
-                       id="${this.containerId}-pow-input"
-                       placeholder="Enter number"
-                       onchange="PCaptcha.updateProofOfWork('${this.containerId}')">
-                <div class="pow-hint">
-                    Hint: Try different numbers until the hash starts with "${data.prefix_required}"
-                </div>
-            </div>
-        `;
-    }
-
-    updateProofOfWork() {
-        const input = this.container.querySelector(`#${this.containerId}-pow-input`);
-        const nonce = input.value;
-
-        if (nonce) {
-            this.solution = { nonce: nonce };
-            this.validateBtn.disabled = false;
-        } else {
-            this.validateBtn.disabled = true;
         }
     }
 
@@ -458,21 +388,9 @@ window.PCaptcha = {
         }
     },
 
-    selectPatternChoice(containerId, choice) {
-        if (this.instances[containerId]) {
-            this.instances[containerId].selectPatternChoice(choice);
-        }
-    },
-
     selectSequenceChoice(containerId, choice) {
         if (this.instances[containerId]) {
             this.instances[containerId].selectSequenceChoice(choice);
-        }
-    },
-
-    updateProofOfWork(containerId) {
-        if (this.instances[containerId]) {
-            this.instances[containerId].updateProofOfWork();
         }
     },
 

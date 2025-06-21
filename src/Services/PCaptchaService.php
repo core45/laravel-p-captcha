@@ -42,40 +42,16 @@ class PCaptchaService
     /**
      * Generate challenge-specific data
      */
-    protected function generateChallengeData(string $type, string $difficulty): array
+    protected function generateChallengeData(string $type): array
     {
         switch ($type) {
-            case 'proof_of_work':
-                return $this->generateProofOfWork($difficulty);
             case 'beam_alignment':
                 return $this->generateBeamAlignment();
-            case 'pattern_match':
-                return $this->generatePatternMatch();
             case 'sequence_complete':
                 return $this->generateSequenceComplete();
             default:
                 return $this->generateBeamAlignment();
         }
-    }
-
-    /**
-     * Generate proof of work challenge
-     */
-    protected function generateProofOfWork(string $difficulty): array
-    {
-        $difficultyLevels = config('p-captcha.difficulty_levels');
-        $target = $difficultyLevels[$difficulty] ?? 3;
-        $challenge = Str::random(16);
-        $prefix = str_repeat('0', $target);
-
-        return [
-            'challenge_data' => [
-                'challenge_string' => $challenge,
-                'target_zeros' => $target,
-                'prefix_required' => $prefix
-            ],
-            'instructions' => "Find a number that when combined with '{$challenge}' produces a hash starting with {$target} zeros"
-        ];
     }
 
     /**
@@ -109,42 +85,6 @@ class PCaptchaService
                 'offset_y' => $correctOffsetY
             ],
             'instructions' => 'Align the beam source with the target by dragging the source to enable particle collision'
-        ];
-    }
-
-    /**
-     * Generate pattern matching challenge
-     */
-    protected function generatePatternMatch(): array
-    {
-        $patterns = [
-            ['▲', '●', '■', '▲', '●', '■'],
-            ['→', '←', '↑', '→', '←', '↑'],
-            ['◆', '○', '◇', '◆', '○', '◇'],
-            ['♦', '♠', '♣', '♦', '♠', '♣'],
-            ['★', '☆', '★', '☆', '★', '☆']
-        ];
-
-        $pattern = $patterns[array_rand($patterns)];
-        $missingIndex = rand(1, count($pattern) - 2); // Don't hide first or last
-        $correctSymbol = $pattern[$missingIndex];
-        $displayPattern = $pattern;
-        $displayPattern[$missingIndex] = '?';
-
-        // Create choices
-        $allSymbols = array_unique(array_merge(...$patterns));
-        $wrongChoices = array_diff($allSymbols, [$correctSymbol]);
-        $choices = array_merge([$correctSymbol], array_slice($wrongChoices, 0, 3));
-        shuffle($choices);
-
-        return [
-            'challenge_data' => [
-                'pattern' => $displayPattern,
-                'choices' => $choices,
-                'missing_index' => $missingIndex
-            ],
-            'solution' => $correctSymbol,
-            'instructions' => 'Complete the pattern by selecting the missing symbol'
         ];
     }
 
@@ -239,32 +179,13 @@ class PCaptchaService
     protected function validateSpecificChallenge(array $challenge, array $solution): bool
     {
         switch ($challenge['type']) {
-            case 'proof_of_work':
-                return $this->validateProofOfWork($challenge, $solution);
             case 'beam_alignment':
                 return $this->validateBeamAlignment($challenge, $solution);
-            case 'pattern_match':
-                return $this->validatePatternMatch($challenge, $solution);
             case 'sequence_complete':
                 return $this->validateSequenceComplete($challenge, $solution);
             default:
                 return false;
         }
-    }
-
-    /**
-     * Validate proof of work solution
-     */
-    protected function validateProofOfWork(array $challenge, array $solution): bool
-    {
-        $challengeString = $challenge['challenge_data']['challenge_string'];
-        $targetZeros = $challenge['challenge_data']['target_zeros'];
-        $nonce = $solution['nonce'] ?? '';
-
-        $hash = hash('sha256', $challengeString . $nonce);
-        $prefix = str_repeat('0', $targetZeros);
-
-        return str_starts_with($hash, $prefix);
     }
 
     /**
@@ -286,17 +207,6 @@ class PCaptchaService
         $yDiff = abs($offsetY - $correctSolution['offset_y']);
 
         return $xDiff <= $tolerance && $yDiff <= $tolerance;
-    }
-
-    /**
-     * Validate pattern match solution
-     */
-    protected function validatePatternMatch(array $challenge, array $solution): bool
-    {
-        $correctAnswer = $challenge['solution'] ?? null;
-        $userAnswer = $solution['answer'] ?? null;
-
-        return $correctAnswer === $userAnswer;
     }
 
     /**
@@ -365,16 +275,9 @@ class PCaptchaService
             // Increment total failures
             $failures = Cache::get($this->getCacheKey('failures', $sessionId), 0);
             Cache::put($this->getCacheKey('failures', $sessionId), $failures + 1, $ttl);
-
-            // Track visual failures separately
-            if ($challengeType !== 'proof_of_work') {
-                $visualFailures = Cache::get($this->getCacheKey('visual_failures', $sessionId), 0);
-                Cache::put($this->getCacheKey('visual_failures', $sessionId), $visualFailures + 1, $ttl);
-            }
         } else {
             // Reset counters on success
             Cache::forget($this->getCacheKey('failures', $sessionId));
-            Cache::forget($this->getCacheKey('visual_failures', $sessionId));
         }
     }
 

@@ -16,29 +16,12 @@ return [
     'route_prefix' => 'p-captcha',
 
     /**
-     * Default CAPTCHA difficulty levels
-     */
-    'difficulty_levels' => [
-        'easy' => 2,      // 2 leading zeros in hash
-        'medium' => 3,    // 3 leading zeros in hash
-        'hard' => 4,      // 4 leading zeros in hash
-        'extreme' => 5,   // 5 leading zeros in hash
-    ],
-
-    /**
      * Available challenge types
      */
     'challenge_types' => [
         'beam_alignment',    // Drag beam source to target
-        'pattern_match',     // Complete symbol patterns
         'sequence_complete', // Complete number sequences
-        'proof_of_work',     // Computational challenge
     ],
-
-    /**
-     * Visual vs Computational challenge distribution (percentage)
-     */
-    'visual_challenge_percentage' => 70,
 
     /**
      * Session and caching settings
@@ -48,6 +31,22 @@ return [
         'failure_tracking_ttl' => 3600, // 1 hour to track failures
         'prefix' => 'p_captcha:',    // Cache key prefix
     ],
+
+    /**
+     * Hidden CAPTCHA settings (bot detection)
+     */
+    'hidden' => [
+        'enabled' => true,
+        'min_submit_time' => 2,      // Minimum seconds before form can be submitted
+        'max_submit_time' => 1200,   // Maximum seconds before form expires (20 minutes)
+        'honeypot_fields' => ['website', 'url', 'homepage', 'search_username'],
+        'javascript_required' => true, // Require JavaScript for token generation
+    ],
+
+    /**
+     * Force visual CAPTCHA to always show (bypasses bot detection)
+     */
+    'force_visual_captcha' => false, // Set to true to always show visual challenges
 
     /**
      * Rate limiting settings
@@ -73,7 +72,6 @@ return [
             'hard' => 3,         // 3 failures = hard difficulty
             'extreme' => 5,      // 5 failures = extreme difficulty
         ],
-        'force_computational_after_visual_failures' => 3, // Force PoW after 3 visual failures
     ],
 
     /**
@@ -82,7 +80,7 @@ return [
     'ui' => [
         'theme' => 'dark',           // 'dark' or 'light'
         'show_instructions' => true,
-        'auto_show_after_attempts' => 2, // Show CAPTCHA after N failed attempts
+        'auto_show_after_attempts' => 3, // Show CAPTCHA after N failed attempts (increased due to hidden validation)
         'beam_alignment' => [
             'tolerance' => 15,       // Pixel tolerance for beam alignment
             'canvas_width' => 400,
