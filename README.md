@@ -54,7 +54,7 @@ php artisan p-captcha:install --force
 
 ### 1. Add CAPTCHA to Your Form
 
-Simply add the `@p-captcha` directive to any Blade template:
+Simply add the `@pcaptcha` directive to any Blade template:
 
 ```blade
 <form method="POST" action="{{ route('contact.store') }}">
@@ -71,7 +71,7 @@ Simply add the `@p-captcha` directive to any Blade template:
     </div>
     
     {{-- Add P-CAPTCHA widget --}}
-    @p-captcha
+    @pcaptcha
     
     <button type="submit">Send Message</button>
 </form>
@@ -126,7 +126,7 @@ That's it! The CAPTCHA will automatically appear after 2 failed form submissions
 You can customize the CAPTCHA widget with options:
 
 ```blade
-@p-captcha('theme=light,id=my-captcha')
+@pcaptcha('theme=light,id=my-captcha')
 ```
 
 Available options:

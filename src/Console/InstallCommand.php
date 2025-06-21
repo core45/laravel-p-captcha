@@ -192,14 +192,14 @@ class InstallCommand extends Command
         $this->info('Laravel P-CAPTCHA has been installed successfully!');
         $this->info('');
         $this->info('Next steps:');
-        $this->info('1. Add @p-captcha directive to your forms');
+        $this->info('1. Add @pcaptcha directive to your forms');
         $this->info('2. Add ->middleware(\'p-captcha\') to your routes');
         $this->info('3. Customize config/p-captcha.php if needed');
         $this->info('');
         $this->info('Example usage:');
         $this->line('');
         $this->line('// In your Blade template:');
-        $this->line('@p-captcha');
+        $this->line('@pcaptcha');
         $this->line('');
         $this->line('// In your routes:');
         $this->line('Route::post(\'/contact\', [ContactController::class, \'store\'])');

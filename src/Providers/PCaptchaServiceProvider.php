@@ -83,11 +83,11 @@ class PCaptchaServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the @p-captcha Blade directive
+     * Register the @pcaptcha Blade directive
      */
     protected function registerBladeDirective(): void
     {
-        Blade::directive('p-captcha', function ($expression) {
+        Blade::directive('pcaptcha', function ($expression) {
             return "<?php echo app('p-captcha')->renderCaptcha({$expression}); ?>";
         });
     }

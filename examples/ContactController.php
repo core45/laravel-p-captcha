@@ -311,7 +311,7 @@ CORRESPONDING BLADE TEMPLATE (resources/views/contact/create.blade.php)
 
                         {{-- P-CAPTCHA Widget --}}
                         {{-- This will automatically show after 2 failed attempts --}}
-                        @p-captcha
+                        @pcaptcha
 
                         {{-- Show CAPTCHA errors --}}
                         @error('p_captcha')
