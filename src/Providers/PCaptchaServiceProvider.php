@@ -90,7 +90,34 @@ class PCaptchaServiceProvider extends ServiceProvider
         Blade::directive('pcaptcha', function ($expression) {
             // All options are now controlled via config file
             // Parameters are ignored for consistency
-            return "<?php echo app('p-captcha')->renderCaptcha(''); ?>";
+            return "<?php 
+                // Log when @pcaptcha directive is processed
+                if (config('app.debug', false)) {
+                    \$request = request();
+                    
+                    // Run basic bot detection
+                    \$userAgent = \$request->userAgent();
+                    \$botDetected = false;
+                    
+                    // Simple bot detection checks
+                    if (empty(\$userAgent)) {
+                        \$botDetected = true;
+                    } elseif (stripos(\$userAgent, 'bot') !== false || 
+                             stripos(\$userAgent, 'crawler') !== false ||
+                             stripos(\$userAgent, 'spider') !== false) {
+                        \$botDetected = true;
+                    }
+                    
+                    \Log::info('P-CAPTCHA: @pcaptcha directive processed', [
+                        'ip' => \$request->ip(),
+                        'user_agent' => \$userAgent,
+                        'bot_detected' => \$botDetected,
+                        'method' => \$request->method(),
+                        'url' => \$request->url()
+                    ]);
+                }
+                echo app('p-captcha')->renderCaptcha('');
+            ?>";
         });
     }
 
