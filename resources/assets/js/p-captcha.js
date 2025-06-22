@@ -5,12 +5,22 @@
 class PCaptchaWidget {
     constructor(containerId) {
         this.containerId = containerId;
-        this.container = document.getElementById(containerId);
-        this.currentChallenge = null;
-        this.solution = {};
+        this.containerEl = document.getElementById(containerId);
         this.verified = false;
+        this.solution = {};
+        this.currentChallenge = null;
 
-        if (!this.container) {
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+            console.log('P-CAPTCHA: Widget constructor called', {
+                container_id: containerId,
+                container_exists: !!this.containerEl,
+                debug_enabled: window.pCaptchaDebug?.enabled,
+                force_visual_captcha: window.pCaptchaConfig?.force_visual_captcha || false
+            });
+        }
+
+        if (!this.containerEl) {
             console.error(`P-CAPTCHA: Container with ID '${containerId}' not found`);
             return;
         }
@@ -19,12 +29,21 @@ class PCaptchaWidget {
     }
 
     async init() {
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+            console.log('P-CAPTCHA: Init method called', {
+                container_id: this.containerId,
+                container_exists: !!this.containerEl,
+                auto_load: this.containerEl?.getAttribute('data-auto-load') === 'true'
+            });
+        }
+
         this.setupElements();
         await this.loadChallenge();
 
         // Debug logging (only when APP_DEBUG is enabled)
         if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
-            console.log('P-CAPTCHA: Initializing widget', {
+            console.log('P-CAPTCHA: Widget initialized', {
                 container_id: this.containerId,
                 force_visual_captcha: window.pCaptchaConfig?.force_visual_captcha || false,
                 auto_show_after_attempts: window.pCaptchaConfig?.auto_show_after_attempts || 3
@@ -33,12 +52,12 @@ class PCaptchaWidget {
     }
 
     setupElements() {
-        this.instructionsEl = this.container.querySelector(`#${this.containerId}-instructions`);
-        this.challengeEl = this.container.querySelector(`#${this.containerId}-challenge`);
-        this.statusEl = this.container.querySelector(`#${this.containerId}-status`);
-        this.validateBtn = this.container.querySelector(`#${this.containerId}-validate`);
-        this.challengeIdInput = this.container.querySelector(`#${this.containerId}-challenge-id`);
-        this.solutionInput = this.container.querySelector(`#${this.containerId}-solution`);
+        this.instructionsEl = this.containerEl.querySelector(`#${this.containerId}-instructions`);
+        this.challengeEl = this.containerEl.querySelector(`#${this.containerId}-challenge`);
+        this.statusEl = this.containerEl.querySelector(`#${this.containerId}-status`);
+        this.validateBtn = this.containerEl.querySelector(`#${this.containerId}-validate`);
+        this.challengeIdInput = this.containerEl.querySelector(`#${this.containerId}-challenge-id`);
+        this.solutionInput = this.containerEl.querySelector(`#${this.containerId}-solution`);
     }
 
     async loadChallenge() {
@@ -103,9 +122,9 @@ class PCaptchaWidget {
     }
 
     setupBeamAlignment() {
-        const canvas = this.container.querySelector(`#${this.containerId}-beam-canvas`);
-        const source = this.container.querySelector(`#${this.containerId}-beam-source`);
-        const target = this.container.querySelector(`#${this.containerId}-beam-target`);
+        const canvas = this.containerEl.querySelector(`#${this.containerId}-beam-canvas`);
+        const source = this.containerEl.querySelector(`#${this.containerId}-beam-source`);
+        const target = this.containerEl.querySelector(`#${this.containerId}-beam-target`);
 
         let isDragging = false;
         let startX, startY, initialLeft, initialTop;
@@ -177,8 +196,8 @@ class PCaptchaWidget {
     }
 
     updateBeamLine() {
-        const source = this.container.querySelector(`#${this.containerId}-beam-source`);
-        const target = this.container.querySelector(`#${this.containerId}-beam-target`);
+        const source = this.containerEl.querySelector(`#${this.containerId}-beam-source`);
+        const target = this.containerEl.querySelector(`#${this.containerId}-beam-target`);
 
         if (!source || !target) return;
 
@@ -190,7 +209,7 @@ class PCaptchaWidget {
         const distance = Math.sqrt(Math.pow(targetX - sourceX, 2) + Math.pow(targetY - sourceY, 2));
         const angle = Math.atan2(targetY - sourceY, targetX - sourceX) * 180 / Math.PI;
 
-        let beamLine = this.container.querySelector(`#${this.containerId}-beam-line`);
+        let beamLine = this.containerEl.querySelector(`#${this.containerId}-beam-line`);
         if (!beamLine) {
             beamLine = document.createElement('div');
             beamLine.id = `${this.containerId}-beam-line`;
@@ -205,8 +224,8 @@ class PCaptchaWidget {
     }
 
     checkBeamAlignment() {
-        const source = this.container.querySelector(`#${this.containerId}-beam-source`);
-        const target = this.container.querySelector(`#${this.containerId}-beam-target`);
+        const source = this.containerEl.querySelector(`#${this.containerId}-beam-source`);
+        const target = this.containerEl.querySelector(`#${this.containerId}-beam-target`);
         const data = this.currentChallenge.challenge_data;
 
         const sourceX = parseInt(source.style.left);
@@ -254,12 +273,12 @@ class PCaptchaWidget {
 
     selectSequenceChoice(choice) {
         // Remove previous selection
-        this.container.querySelectorAll('.sequence-choice').forEach(el => {
+        this.containerEl.querySelectorAll('.sequence-choice').forEach(el => {
             el.classList.remove('selected');
         });
 
         // Select new choice
-        const choiceEl = this.container.querySelector(`[data-choice="${choice}"]`);
+        const choiceEl = this.containerEl.querySelector(`[data-choice="${choice}"]`);
         if (choiceEl) {
             choiceEl.classList.add('selected');
             this.solution = { answer: parseInt(choice) };

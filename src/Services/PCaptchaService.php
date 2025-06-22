@@ -490,7 +490,7 @@ class PCaptchaService
         $defaults = [
             'id' => 'p-captcha-' . Str::random(8),
             'theme' => config('p-captcha.ui.theme', 'dark'),
-            'auto_load' => true
+            'auto_load' => false
         ];
 
         if (empty($options)) {
