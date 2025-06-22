@@ -331,6 +331,29 @@ class ProtectWithPCaptcha
     }
 
     /**
+     * Handle CAPTCHA failure
+     */
+    protected function handleCaptchaFailure(Request $request)
+    {
+        $this->incrementAttemptCount();
+
+        if ($request->expectsJson()) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'CAPTCHA verification failed. Please try again.',
+                'captcha_failed' => true,
+                'errors' => [
+                    'captcha' => ['CAPTCHA verification failed. Please try again.']
+                ]
+            ], 422);
+        }
+
+        return back()
+            ->withErrors(['captcha' => 'CAPTCHA verification failed. Please try again.'])
+            ->withInput($request->except(['p_captcha_id', 'p_captcha_solution', '_captcha_token', '_captcha_field']));
+    }
+
+    /**
      * Increment attempt count for this session
      */
     protected function incrementAttemptCount(): void
