@@ -203,12 +203,11 @@ php artisan vendor:publish --provider="Core45\LaravelPCaptcha\Providers\PCaptcha
 
 return [
     // Force visual CAPTCHA to always show (bypasses bot detection)
-    'force_visual_captcha' => false,
+    'force_visual_captcha' => false, // Set to true to always show visual challenges
     
     // UI/UX settings
     'ui' => [
         'theme' => 'light',           // 'dark' or 'light'
-        'auto_load' => true,          // Whether to auto-load CAPTCHA on page load
         'show_instructions' => true,
         'auto_show_after_attempts' => 3,
     ],
@@ -225,9 +224,10 @@ return [
 
 ### Important Settings
 
-- **`ui.auto_load`**: Set to `true` to automatically load and display the CAPTCHA when the page loads. Set to `false` to load it only when needed (e.g., after failed attempts).
+- **`force_visual_captcha`**: 
+  - `false` (default): CAPTCHA only shows when bot detection triggers it or after failed attempts
+  - `true`: CAPTCHA always shows, bypassing bot detection
 - **`ui.theme`**: Choose between `'light'` and `'dark'` themes.
-- **`force_visual_captcha`**: Set to `true` to always show visual challenges, bypassing bot detection.
 
 ## Bot Detection Methods
 

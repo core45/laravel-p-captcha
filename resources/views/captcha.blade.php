@@ -1,4 +1,6 @@
 {{-- P-CAPTCHA Widget --}}
+{{-- DEBUG: auto_load = {{ $options['auto_load'] ? 'true' : 'false' }} --}}
+<!-- DEBUG: auto_load value = {{ $options['auto_load'] ? 'true' : 'false' }} -->
 <div id="{{ $options['id'] }}" class="p-captcha-container"
      data-theme="{{ $options['theme'] }}"
      data-auto-load="{{ $options['auto_load'] ? 'true' : 'false' }}">

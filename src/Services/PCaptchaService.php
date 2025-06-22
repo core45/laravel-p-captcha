@@ -476,6 +476,11 @@ class PCaptchaService
     {
         $optionsArray = $this->parseOptions($options);
 
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Options being passed to view', $optionsArray);
+        }
+
         return view('p-captcha::captcha', [
             'options' => $optionsArray,
             'config' => config('p-captcha')
@@ -491,22 +496,31 @@ class PCaptchaService
         // Parameters passed to @pcaptcha directive are ignored
         
         $theme = config('p-captcha.ui.theme', 'dark');
-        $autoLoad = config('p-captcha.ui.auto_load', false);
+        $forceVisualCaptcha = config('p-captcha.force_visual_captcha', false);
         
         // Debug logging (only when APP_DEBUG is enabled)
         if (config('app.debug', false)) {
             \Log::info('P-CAPTCHA: Parsing options from config', [
                 'theme' => $theme,
-                'auto_load' => $autoLoad,
-                'config_path' => 'p-captcha.ui'
+                'force_visual_captcha' => $forceVisualCaptcha,
+                'force_visual_captcha_type' => gettype($forceVisualCaptcha),
+                'force_visual_captcha_bool' => (bool) $forceVisualCaptcha,
+                'config_path' => 'p-captcha'
             ]);
         }
         
-        return [
+        $result = [
             'id' => 'p-captcha-' . Str::random(8),
             'theme' => $theme,
-            'auto_load' => $autoLoad
+            'auto_load' => (bool) $forceVisualCaptcha // Explicit boolean conversion
         ];
+        
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Final options array', $result);
+        }
+        
+        return $result;
     }
 
     /**

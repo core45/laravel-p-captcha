@@ -87,7 +87,6 @@ return [
      */
     'ui' => [
         'theme' => 'light',           // 'dark' or 'light'
-        'auto_load' => true,          // Whether to auto-load CAPTCHA on page load
         'show_instructions' => true,
         'auto_show_after_attempts' => 3, // Show CAPTCHA after N failed attempts (increased due to hidden validation)
         'beam_alignment' => [
