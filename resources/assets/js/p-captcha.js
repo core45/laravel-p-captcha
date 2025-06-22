@@ -62,7 +62,10 @@ class PCaptchaWidget {
 
     async loadChallenge() {
         try {
-            this.showLoading();
+            // Debug logging (only when APP_DEBUG is enabled)
+            if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+                console.log('P-CAPTCHA: Loading challenge...');
+            }
 
             const response = await fetch('/p-captcha/generate', {
                 method: 'POST',
@@ -74,25 +77,49 @@ class PCaptchaWidget {
 
             const data = await response.json();
 
-            if (data.success) {
-                this.currentChallenge = data.challenge;
-                this.challengeIdInput.value = this.currentChallenge.id;
-                this.renderChallenge();
-            } else {
-                this.showError('Failed to load CAPTCHA challenge');
+            // Debug logging (only when APP_DEBUG is enabled)
+            if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+                console.log('P-CAPTCHA: Challenge response', data);
             }
 
+            if (data.success && data.challenge) {
+                this.currentChallenge = data.challenge;
+                this.renderChallenge();
+            } else {
+                throw new Error(data.message || 'Failed to load challenge');
+            }
         } catch (error) {
             console.error('P-CAPTCHA: Failed to load challenge', error);
-            this.showError('Network error. Please try again.');
+            this.showError('Failed to load challenge. Please refresh the page.');
         }
     }
 
     renderChallenge() {
-        if (!this.currentChallenge) return;
+        if (!this.currentChallenge) {
+            // Debug logging (only when APP_DEBUG is enabled)
+            if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+                console.log('P-CAPTCHA: No challenge to render');
+            }
+            return;
+        }
 
-        this.instructionsEl.textContent = this.currentChallenge.instructions;
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+            console.log('P-CAPTCHA: Rendering challenge', {
+                challenge_type: this.currentChallenge.type,
+                challenge_id: this.currentChallenge.id
+            });
+        }
 
+        // Set challenge ID in hidden field
+        this.challengeIdInput.value = this.currentChallenge.id;
+
+        // Update instructions
+        if (this.instructionsEl) {
+            this.instructionsEl.textContent = this.currentChallenge.instructions || 'Complete the challenge below';
+        }
+
+        // Render based on challenge type
         switch (this.currentChallenge.type) {
             case 'beam_alignment':
                 this.renderBeamAlignment();
@@ -101,7 +128,7 @@ class PCaptchaWidget {
                 this.renderSequenceComplete();
                 break;
             default:
-                this.showError('Unknown challenge type');
+                this.showError('Unknown challenge type: ' + this.currentChallenge.type);
         }
     }
 
