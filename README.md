@@ -347,8 +347,30 @@ The package can detect and handle requests containing text in specific alphabets
 
 ```php
 // config/p-captcha.php
-'allowed_alphabet' => 'latin', // Only allow Latin alphabet
-'forbidden_alphabet_deny' => true, // Deny requests with forbidden alphabets
+'allowed_alphabet' => [
+    'latin' => true,      // Allow Latin alphabet
+    'cyrillic' => false,  // Block Cyrillic alphabet
+    'arabic' => false,    // Block Arabic alphabet
+    // ... other alphabets
+],
+'forbidden_alphabet_deny' => true, // Whether to deny requests with forbidden alphabets
+```
+
+### Behavior
+
+- **When `forbidden_alphabet_deny = true`**: Requests with forbidden alphabets are immediately denied with the message "Form submission contains forbidden characters."
+- **When `forbidden_alphabet_deny = false`**: Requests with forbidden alphabets are allowed but require visual CAPTCHA completion.
+
+### Example Usage
+
+```php
+// This would trigger alphabet detection:
+$data = [
+    'name' => 'Иван Петров',
+    'email' => 'ivan@example.com',
+    'message' => 'Привет мир!'
+];
+// Detected: 'cyrillic' (if not allowed)
 ```
 
 ### Supported Alphabets
@@ -364,11 +386,6 @@ The package can detect and handle requests containing text in specific alphabets
 - `japanese` - Japanese characters
 - `korean` - Korean characters
 - `other` - Any other unlisted script
-
-### Behavior
-
-- If `forbidden_alphabet_deny` is `true`: Requests with forbidden alphabets are immediately denied
-- If `forbidden_alphabet_deny` is `false`: Requests with forbidden alphabets are forced to complete visual CAPTCHA
 
 ## Forbidden Words Detection
 

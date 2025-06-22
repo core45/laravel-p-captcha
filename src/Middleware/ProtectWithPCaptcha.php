@@ -69,6 +69,8 @@ class ProtectWithPCaptcha
             } else {
                 // Force visual CAPTCHA for all requests with forbidden alphabets
                 $visualCaptchaRequired = true;
+                // Set session flag to indicate CAPTCHA is required
+                session(['p_captcha_required' => true]);
             }
         }
 
@@ -76,6 +78,8 @@ class ProtectWithPCaptcha
         if ($forbiddenWordsCheck['forbidden_detected']) {
             // Always force visual CAPTCHA for users with forbidden words
             $visualCaptchaRequired = true;
+            // Set session flag to indicate CAPTCHA is required
+            session(['p_captcha_required' => true]);
             
             // Debug logging (only when APP_DEBUG is enabled)
             if (config('app.debug', false)) {
@@ -111,7 +115,8 @@ class ProtectWithPCaptcha
             $isValid = $this->validateVisualCaptcha($request);
 
             if ($isValid) {
-                // CAPTCHA passed, continue with request
+                // CAPTCHA passed, clear session flag and continue with request
+                session()->forget('p_captcha_required');
                 return $next($request);
             } else {
                 // CAPTCHA failed
@@ -533,7 +538,7 @@ class ProtectWithPCaptcha
     protected function handleAlphabetViolation(Request $request, array $detectedAlphabets)
     {
         $alphabetNames = implode(', ', $detectedAlphabets);
-        $message = "Form submission contains forbidden alphabets: {$alphabetNames}. Only Latin characters are allowed.";
+        $message = "Form submission contains forbidden characters.";
 
         // Debug logging (only when APP_DEBUG is enabled)
         if (config('app.debug', false)) {
