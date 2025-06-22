@@ -126,8 +126,19 @@ class PCaptchaService
         ];
 
         $seq = $sequences[array_rand($sequences)];
-        $sequence = $this->generateSequence($seq);
-        $correctAnswer = array_pop($sequence);
+        $fullSequence = $this->generateSequence($seq);
+        $correctAnswer = array_pop($fullSequence);
+        $sequence = $fullSequence; // This is now the sequence without the answer
+
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Sequence generation details', [
+                'sequence_config' => $seq,
+                'full_sequence_before_pop' => $fullSequence,
+                'correct_answer' => $correctAnswer,
+                'sequence_after_pop' => $sequence
+            ]);
+        }
 
         // Generate wrong options (make them more realistic)
         $wrongOptions = [
@@ -293,7 +304,39 @@ class PCaptchaService
         $correctAnswer = $challenge['solution'] ?? null;
         $userAnswer = $solution['answer'] ?? null;
 
-        return $correctAnswer === $userAnswer;
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Sequence validation details', [
+                'correct_answer' => $correctAnswer,
+                'correct_answer_type' => gettype($correctAnswer),
+                'user_answer' => $userAnswer,
+                'user_answer_type' => gettype($userAnswer),
+                'challenge_data' => $challenge['challenge_data'] ?? null,
+                'solution_data' => $solution
+            ]);
+        }
+
+        // Handle type conversion for comparison
+        if ($correctAnswer !== null && $userAnswer !== null) {
+            // Convert both to the same type for comparison
+            $correctAnswer = (int) $correctAnswer;
+            $userAnswer = (int) $userAnswer;
+            
+            $isValid = $correctAnswer === $userAnswer;
+            
+            // Debug logging for result (only when APP_DEBUG is enabled)
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Sequence validation result', [
+                    'correct_answer_converted' => $correctAnswer,
+                    'user_answer_converted' => $userAnswer,
+                    'is_valid' => $isValid
+                ]);
+            }
+            
+            return $isValid;
+        }
+
+        return false;
     }
 
     /**
