@@ -125,7 +125,9 @@ class PCaptchaService
                     'offset_y' => $challengeData['target_y'] - $challengeData['source_y'],
                 ];
             case 'sequence_complete':
-                return $challengeData['correct_answer'];
+                return [
+                    'answer' => $challengeData['correct_answer']
+                ];
             default:
                 return [];
         }
@@ -256,7 +258,7 @@ class PCaptchaService
      */
     protected function validateSequenceComplete(array $challenge, array $solution): bool
     {
-        $correctAnswer = $challenge['solution'] ?? null;
+        $correctAnswer = $challenge['solution']['answer'] ?? null;
         $userAnswer = $solution['answer'] ?? null;
 
         // Debug logging (only when APP_DEBUG is enabled)

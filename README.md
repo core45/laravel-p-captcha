@@ -612,6 +612,29 @@ If you discover a security vulnerability, please send an e-mail to [security@you
 
 ## Changelog
 
+### [Unreleased]
+
+#### Fixed
+- **Solution Structure Consistency**: Fixed "Return value must be of type array" error by ensuring all challenge solutions are consistently returned as arrays
+  - `sequence_complete` challenges now return `['answer' => $value]` instead of just `$value`
+  - Updated validation logic to handle the new array structure
+  - Updated test files to match the new solution format
+  - All challenge types now use consistent array-based solution structure
+
+#### Changed
+- **Solution Format**: All challenge solutions now use consistent array format:
+  - `beam_alignment`: `['offset_x' => $x, 'offset_y' => $y]`
+  - `sequence_complete`: `['answer' => $number]`
+- **Validation Logic**: Updated to handle array-based solutions consistently
+
+#### Technical Details
+- Modified `generateSolution()` method to always return arrays
+- Updated `validateSequenceComplete()` to access `$challenge['solution']['answer']`
+- Updated test assertions to match new structure
+- Added comprehensive integration tests to verify fix
+
+### [Previous Versions]
+
 Please see [CHANGELOG.md](CHANGELOG.md) for more information on what has changed recently.
 
 ## Service Architecture
