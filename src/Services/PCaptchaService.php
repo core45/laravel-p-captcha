@@ -127,16 +127,25 @@ class PCaptchaService
 
         $seq = $sequences[array_rand($sequences)];
         $fullSequence = $this->generateSequence($seq);
-        $correctAnswer = array_pop($fullSequence);
-        $sequence = $fullSequence; // This is now the sequence without the answer
-
+        
         // Debug logging (only when APP_DEBUG is enabled)
         if (config('app.debug', false)) {
             \Log::info('P-CAPTCHA: Sequence generation details', [
                 'sequence_config' => $seq,
                 'full_sequence_before_pop' => $fullSequence,
+                'sequence_length' => count($fullSequence)
+            ]);
+        }
+        
+        $correctAnswer = array_pop($fullSequence);
+        $sequence = $fullSequence; // This is now the sequence without the answer
+
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Sequence after pop', [
                 'correct_answer' => $correctAnswer,
-                'sequence_after_pop' => $sequence
+                'sequence_after_pop' => $sequence,
+                'sequence_length_after_pop' => count($sequence)
             ]);
         }
 
@@ -312,28 +321,38 @@ class PCaptchaService
                 'user_answer' => $userAnswer,
                 'user_answer_type' => gettype($userAnswer),
                 'challenge_data' => $challenge['challenge_data'] ?? null,
-                'solution_data' => $solution
+                'solution_data' => $solution,
+                'challenge_solution' => $challenge['solution'] ?? null
             ]);
         }
 
         // Handle type conversion for comparison
         if ($correctAnswer !== null && $userAnswer !== null) {
             // Convert both to the same type for comparison
-            $correctAnswer = (int) $correctAnswer;
-            $userAnswer = (int) $userAnswer;
+            $correctAnswerInt = (int) $correctAnswer;
+            $userAnswerInt = (int) $userAnswer;
             
-            $isValid = $correctAnswer === $userAnswer;
+            $isValid = $correctAnswerInt === $userAnswerInt;
             
             // Debug logging for result (only when APP_DEBUG is enabled)
             if (config('app.debug', false)) {
                 \Log::info('P-CAPTCHA: Sequence validation result', [
-                    'correct_answer_converted' => $correctAnswer,
-                    'user_answer_converted' => $userAnswer,
-                    'is_valid' => $isValid
+                    'correct_answer_converted' => $correctAnswerInt,
+                    'user_answer_converted' => $userAnswerInt,
+                    'is_valid' => $isValid,
+                    'comparison_type' => 'strict integer comparison'
                 ]);
             }
             
             return $isValid;
+        }
+
+        // Debug logging for null values (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Sequence validation failed - null values', [
+                'correct_answer_null' => $correctAnswer === null,
+                'user_answer_null' => $userAnswer === null
+            ]);
         }
 
         return false;
