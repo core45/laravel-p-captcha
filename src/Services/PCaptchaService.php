@@ -531,4 +531,290 @@ class PCaptchaService
         $prefix = config('p-captcha.cache.prefix', 'p_captcha:');
         return $prefix . $type . ':' . $identifier;
     }
+
+    /**
+     * Check if the request contains forbidden alphabets
+     * 
+     * @param array $requestData The request data to check
+     * @return array Array with 'forbidden_detected' => bool and 'detected_alphabets' => array
+     */
+    public function checkAlphabetRestrictions(array $requestData): array
+    {
+        $allowedAlphabets = config('p-captcha.allowed_alphabet', []);
+        $detectedAlphabets = $this->detectAlphabetsInData($requestData);
+        $forbiddenDetected = false;
+
+        foreach ($detectedAlphabets as $alphabet) {
+            if (isset($allowedAlphabets[$alphabet]) && !$allowedAlphabets[$alphabet]) {
+                $forbiddenDetected = true;
+                break;
+            }
+        }
+
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Alphabet check result', [
+                'detected_alphabets' => $detectedAlphabets,
+                'forbidden_detected' => $forbiddenDetected,
+                'allowed_alphabets' => $allowedAlphabets
+            ]);
+        }
+
+        return [
+            'forbidden_detected' => $forbiddenDetected,
+            'detected_alphabets' => $detectedAlphabets
+        ];
+    }
+
+    /**
+     * Detect alphabets present in the given data
+     * 
+     * @param array $data The data to analyze
+     * @return array Array of detected alphabet names
+     */
+    protected function detectAlphabetsInData(array $data): array
+    {
+        $detectedAlphabets = [];
+        $textFields = $this->extractTextFields($data);
+
+        foreach ($textFields as $text) {
+            $alphabets = $this->detectAlphabetsInText($text);
+            $detectedAlphabets = array_merge($detectedAlphabets, $alphabets);
+        }
+
+        return array_unique($detectedAlphabets);
+    }
+
+    /**
+     * Extract all text fields from nested data array
+     * 
+     * @param array $data The data array
+     * @return array Array of text strings
+     */
+    protected function extractTextFields(array $data): array
+    {
+        $textFields = [];
+
+        foreach ($data as $key => $value) {
+            // Skip CAPTCHA-related fields
+            if (str_starts_with($key, '_captcha') || str_starts_with($key, 'captcha')) {
+                continue;
+            }
+
+            if (is_string($value) && !empty(trim($value))) {
+                $textFields[] = $value;
+            } elseif (is_array($value)) {
+                $textFields = array_merge($textFields, $this->extractTextFields($value));
+            }
+        }
+
+        return $textFields;
+    }
+
+    /**
+     * Detect alphabets present in a text string
+     * 
+     * @param string $text The text to analyze
+     * @return array Array of detected alphabet names
+     */
+    protected function detectAlphabetsInText(string $text): array
+    {
+        $detectedAlphabets = [];
+        $hasRecognizedAlphabet = false;
+
+        // 1. Latin (Basic Latin + Latin-1 Supplement + Latin Extended)
+        if (preg_match('/[\x{0041}-\x{007A}\x{00C0}-\x{00FF}\x{0100}-\x{017F}\x{0180}-\x{024F}]/u', $text)) {
+            $detectedAlphabets[] = 'latin';
+            $hasRecognizedAlphabet = true;
+        }
+
+        // 2. Chinese (Simplified and Traditional)
+        if (preg_match('/[\x{4E00}-\x{9FFF}\x{3400}-\x{4DBF}\x{20000}-\x{2A6DF}\x{2A700}-\x{2B73F}\x{2B740}-\x{2B81F}\x{2B820}-\x{2CEAF}\x{F900}-\x{FAFF}\x{2F800}-\x{2FA1F}]/u', $text)) {
+            $detectedAlphabets[] = 'chinese';
+            $hasRecognizedAlphabet = true;
+        }
+
+        // 3. Arabic
+        if (preg_match('/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}\x{FB50}-\x{FDFF}\x{FE70}-\x{FEFF}]/u', $text)) {
+            $detectedAlphabets[] = 'arabic';
+            $hasRecognizedAlphabet = true;
+        }
+
+        // 4. Devanagari (Hindi, Marathi, Nepali, etc.)
+        if (preg_match('/[\x{0900}-\x{097F}]/u', $text)) {
+            $detectedAlphabets[] = 'devanagari';
+            $hasRecognizedAlphabet = true;
+        }
+
+        // 5. Cyrillic
+        if (preg_match('/[\x{0400}-\x{04FF}\x{0500}-\x{052F}\x{2DE0}-\x{2DFF}\x{A640}-\x{A69F}]/u', $text)) {
+            $detectedAlphabets[] = 'cyrillic';
+            $hasRecognizedAlphabet = true;
+        }
+
+        // 6. Thai
+        if (preg_match('/[\x{0E00}-\x{0E7F}]/u', $text)) {
+            $detectedAlphabets[] = 'thai';
+            $hasRecognizedAlphabet = true;
+        }
+
+        // 7. Korean (Hangul)
+        if (preg_match('/[\x{AC00}-\x{D7AF}\x{1100}-\x{11FF}\x{3130}-\x{318F}]/u', $text)) {
+            $detectedAlphabets[] = 'korean';
+            $hasRecognizedAlphabet = true;
+        }
+
+        // 8. Japanese (Hiragana, Katakana, Kanji)
+        if (preg_match('/[\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{4E00}-\x{9FFF}\x{3400}-\x{4DBF}]/u', $text)) {
+            $detectedAlphabets[] = 'japanese';
+            $hasRecognizedAlphabet = true;
+        }
+
+        // 9. Bengali
+        if (preg_match('/[\x{0980}-\x{09FF}]/u', $text)) {
+            $detectedAlphabets[] = 'bengali';
+            $hasRecognizedAlphabet = true;
+        }
+
+        // 10. Tamil
+        if (preg_match('/[\x{0B80}-\x{0BFF}]/u', $text)) {
+            $detectedAlphabets[] = 'tamil';
+            $hasRecognizedAlphabet = true;
+        }
+
+        // Check for other writing systems not in the top 10
+        // This covers: Hebrew, Greek, Telugu, Kannada, Malayalam, Gujarati, Punjabi, Odia, Sinhala, Khmer, Lao, Myanmar, Ethiopic, Armenian, Georgian, Mongolian, Tibetan, and any other Unicode scripts
+        $otherScripts = [
+            // Hebrew
+            '/[\x{0590}-\x{05FF}\x{FB1D}-\x{FB4F}]/u',
+            // Greek
+            '/[\x{0370}-\x{03FF}\x{1F00}-\x{1FFF}]/u',
+            // Telugu
+            '/[\x{0C00}-\x{0C7F}]/u',
+            // Kannada
+            '/[\x{0C80}-\x{0CFF}]/u',
+            // Malayalam
+            '/[\x{0D00}-\x{0D7F}]/u',
+            // Gujarati
+            '/[\x{0A80}-\x{0AFF}]/u',
+            // Punjabi (Gurmukhi)
+            '/[\x{0A00}-\x{0A7F}]/u',
+            // Odia
+            '/[\x{0B00}-\x{0B7F}]/u',
+            // Sinhala
+            '/[\x{0D80}-\x{0DFF}]/u',
+            // Khmer
+            '/[\x{1780}-\x{17FF}]/u',
+            // Lao
+            '/[\x{0E80}-\x{0EFF}]/u',
+            // Myanmar
+            '/[\x{1000}-\x{109F}]/u',
+            // Ethiopic (Amharic, Tigrinya, etc.)
+            '/[\x{1200}-\x{137F}\x{1380}-\x{139F}\x{2D80}-\x{2DDF}\x{AB00}-\x{AB2F}]/u',
+            // Armenian
+            '/[\x{0530}-\x{058F}]/u',
+            // Georgian
+            '/[\x{10A0}-\x{10FF}\x{2D00}-\x{2D2F}]/u',
+            // Mongolian
+            '/[\x{1800}-\x{18AF}]/u',
+            // Tibetan
+            '/[\x{0F00}-\x{0FFF}]/u',
+            // General Unicode scripts (catch-all for any other scripts)
+            '/[\x{2000}-\x{206F}]/u', // General Punctuation
+            '/[\x{2100}-\x{214F}]/u', // Letterlike Symbols
+            '/[\x{2200}-\x{22FF}]/u', // Mathematical Operators
+            '/[\x{2300}-\x{23FF}]/u', // Miscellaneous Technical
+            '/[\x{2400}-\x{243F}]/u', // Control Pictures
+            '/[\x{2440}-\x{245F}]/u', // Optical Character Recognition
+            '/[\x{2460}-\x{24FF}]/u', // Enclosed Alphanumerics
+            '/[\x{2500}-\x{257F}]/u', // Box Drawing
+            '/[\x{2580}-\x{259F}]/u', // Block Elements
+            '/[\x{25A0}-\x{25FF}]/u', // Geometric Shapes
+            '/[\x{2600}-\x{26FF}]/u', // Miscellaneous Symbols
+            '/[\x{2700}-\x{27BF}]/u', // Dingbats
+            '/[\x{2800}-\x{28FF}]/u', // Braille Patterns
+            '/[\x{2900}-\x{297F}]/u', // Supplemental Arrows-B
+            '/[\x{2980}-\x{29FF}]/u', // Miscellaneous Mathematical Symbols-B
+            '/[\x{2A00}-\x{2AFF}]/u', // Supplemental Mathematical Operators
+            '/[\x{2B00}-\x{2BFF}]/u', // Miscellaneous Symbols and Arrows
+            '/[\x{2C00}-\x{2C5F}]/u', // Glagolitic
+            '/[\x{2C60}-\x{2C7F}]/u', // Latin Extended-C
+            '/[\x{2C80}-\x{2CFF}]/u', // Coptic
+            '/[\x{2D00}-\x{2D2F}]/u', // Georgian Supplement
+            '/[\x{2D30}-\x{2D7F}]/u', // Tifinagh
+            '/[\x{2D80}-\x{2DDF}]/u', // Ethiopic Extended
+            '/[\x{2DE0}-\x{2DFF}]/u', // Cyrillic Extended-A
+            '/[\x{2E00}-\x{2E7F}]/u', // Supplemental Punctuation
+            '/[\x{2E80}-\x{2EFF}]/u', // CJK Radicals Supplement
+            '/[\x{2F00}-\x{2FDF}]/u', // Kangxi Radicals
+            '/[\x{2FF0}-\x{2FFF}]/u', // Ideographic Description Characters
+            '/[\x{3000}-\x{303F}]/u', // CJK Symbols and Punctuation
+            '/[\x{3040}-\x{309F}]/u', // Hiragana
+            '/[\x{30A0}-\x{30FF}]/u', // Katakana
+            '/[\x{3100}-\x{312F}]/u', // Bopomofo
+            '/[\x{3130}-\x{318F}]/u', // Hangul Compatibility Jamo
+            '/[\x{3190}-\x{319F}]/u', // Kanbun
+            '/[\x{31A0}-\x{31BF}]/u', // Bopomofo Extended
+            '/[\x{31C0}-\x{31EF}]/u', // CJK Strokes
+            '/[\x{31F0}-\x{31FF}]/u', // Katakana Phonetic Extensions
+            '/[\x{3200}-\x{32FF}]/u', // Enclosed CJK Letters and Months
+            '/[\x{3300}-\x{33FF}]/u', // CJK Compatibility
+            '/[\x{3400}-\x{4DBF}]/u', // CJK Unified Ideographs Extension A
+            '/[\x{4DC0}-\x{4DFF}]/u', // Yijing Hexagram Symbols
+            '/[\x{4E00}-\x{9FFF}]/u', // CJK Unified Ideographs
+            '/[\x{A000}-\x{A48F}]/u', // Yi Syllables
+            '/[\x{A490}-\x{A4CF}]/u', // Yi Radicals
+            '/[\x{A4D0}-\x{A4FF}]/u', // Lisu
+            '/[\x{A500}-\x{A63F}]/u', // Vai
+            '/[\x{A640}-\x{A69F}]/u', // Cyrillic Extended-B
+            '/[\x{A6A0}-\x{A6FF}]/u', // Bamum
+            '/[\x{A700}-\x{A71F}]/u', // Modifier Tone Letters
+            '/[\x{A720}-\x{A7FF}]/u', // Latin Extended-D
+            '/[\x{A800}-\x{A82F}]/u', // Syloti Nagri
+            '/[\x{A830}-\x{A83F}]/u', // Common Indic Number Forms
+            '/[\x{A840}-\x{A87F}]/u', // Phags-pa
+            '/[\x{A880}-\x{A8DF}]/u', // Saurashtra
+            '/[\x{A8E0}-\x{A8FF}]/u', // Devanagari Extended
+            '/[\x{A900}-\x{A92F}]/u', // Kayah Li
+            '/[\x{A930}-\x{A95F}]/u', // Rejang
+            '/[\x{A960}-\x{A97F}]/u', // Hangul Jamo Extended-A
+            '/[\x{A980}-\x{A9DF}]/u', // Javanese
+            '/[\x{A9E0}-\x{A9FF}]/u', // Myanmar Extended-B
+            '/[\x{AA00}-\x{AA5F}]/u', // Cham
+            '/[\x{AA60}-\x{AA7F}]/u', // Myanmar Extended-A
+            '/[\x{AA80}-\x{AADF}]/u', // Tai Viet
+            '/[\x{AAE0}-\x{AAFF}]/u', // Meetei Mayek Extensions
+            '/[\x{AB00}-\x{AB2F}]/u', // Ethiopic Extended-A
+            '/[\x{AB30}-\x{AB6F}]/u', // Latin Extended-E
+            '/[\x{AB70}-\x{ABBF}]/u', // Cherokee Supplement
+            '/[\x{ABC0}-\x{ABFF}]/u', // Meetei Mayek
+            '/[\x{AC00}-\x{D7AF}]/u', // Hangul Syllables
+            '/[\x{D7B0}-\x{D7FF}]/u', // Hangul Jamo Extended-B
+            '/[\x{D800}-\x{DB7F}]/u', // High Surrogates
+            '/[\x{DB80}-\x{DBFF}]/u', // High Private Use Surrogates
+            '/[\x{DC00}-\x{DFFF}]/u', // Low Surrogates
+            '/[\x{E000}-\x{F8FF}]/u', // Private Use Area
+            '/[\x{F900}-\x{FAFF}]/u', // CJK Compatibility Ideographs
+            '/[\x{FB00}-\x{FB4F}]/u', // Alphabetic Presentation Forms
+            '/[\x{FB50}-\x{FDFF}]/u', // Arabic Presentation Forms-A
+            '/[\x{FE00}-\x{FE0F}]/u', // Variation Selectors
+            '/[\x{FE10}-\x{FE1F}]/u', // Vertical Forms
+            '/[\x{FE20}-\x{FE2F}]/u', // Combining Half Marks
+            '/[\x{FE30}-\x{FE4F}]/u', // CJK Compatibility Forms
+            '/[\x{FE50}-\x{FE6F}]/u', // Small Form Variants
+            '/[\x{FE70}-\x{FEFF}]/u', // Arabic Presentation Forms-B
+            '/[\x{FF00}-\x{FFEF}]/u', // Halfwidth and Fullwidth Forms
+            '/[\x{FFF0}-\x{FFFF}]/u', // Specials
+        ];
+
+        foreach ($otherScripts as $pattern) {
+            if (preg_match($pattern, $text)) {
+                $detectedAlphabets[] = 'other';
+                $hasRecognizedAlphabet = true;
+                break; // Only need to detect 'other' once
+            }
+        }
+
+        return $detectedAlphabets;
+    }
 }

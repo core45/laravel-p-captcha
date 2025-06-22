@@ -6,6 +6,7 @@ A sophisticated CAPTCHA package for Laravel applications featuring adaptive diff
 
 - **Hidden Bot Detection**: Invisible CAPTCHA with honeypot fields, timing validation, and JavaScript checks
 - **Smart Visual Challenges**: Beam alignment and sequence completion only shown when bots are detected
+- **Alphabet Restrictions**: Control which writing systems are allowed in form submissions
 - **Modern UI**: Dark/light themes with smooth animations
 - **Mobile Friendly**: Touch-optimized for mobile devices
 - **High Performance**: Efficient caching and rate limiting
@@ -337,6 +338,122 @@ Mathematical sequence completion challenges.
 - **Session Tracking**: Adaptive difficulty per user session
 - **Comprehensive Logging**: All attempts logged for monitoring
 - **IP-based Protection**: Optional IP blocking for suspicious activity
+
+## Alphabet Restrictions
+
+The package includes a powerful alphabet restriction system that allows you to control which writing systems are permitted in form submissions. This feature is particularly useful for preventing spam from specific regions or languages.
+
+### Configuration
+
+Configure alphabet restrictions in your `config/p-captcha.php`:
+
+```php
+/**
+ * Alphabet restrictions
+ */
+'allowed_alphabet' => [
+    'latin' => true,        // Latin script (English, French, German, Spanish, etc.)
+    'chinese' => false,     // Chinese characters (Simplified/Traditional)
+    'arabic' => false,      // Arabic script (Arabic, Persian, Urdu, etc.)
+    'devanagari' => false,  // Devanagari script (Hindi, Marathi, Nepali, etc.)
+    'cyrillic' => false,    // Cyrillic script (Russian, Bulgarian, Serbian, etc.)
+    'thai' => false,        // Thai script
+    'korean' => false,      // Korean Hangul
+    'japanese' => false,    // Japanese characters (Hiragana, Katakana, Kanji)
+    'bengali' => false,     // Bengali script
+    'tamil' => false,       // Tamil script
+    'other' => false,       // All other unlisted writing systems
+],
+'forbidden_alphabet_deny' => true,  // Whether to deny requests with forbidden alphabets
+```
+
+### Behavior Modes
+
+**Mode 1: Deny Forbidden Alphabets (Default)**
+- Requests containing forbidden alphabets are immediately rejected
+- Clear error message returned to the user
+- Form data is not processed
+
+**Mode 2: Force CAPTCHA for Forbidden Alphabets**
+- Requests containing forbidden alphabets always trigger a visual CAPTCHA
+- Allows legitimate users with non-Latin names to still submit forms
+- Provides additional verification for suspicious submissions
+
+### Usage Examples
+
+**Allow Only Latin Characters:**
+```php
+'allowed_alphabet' => [
+    'latin' => true,
+    'chinese' => false,
+    'arabic' => false,
+    'devanagari' => false,
+    'cyrillic' => false,
+    'thai' => false,
+    'korean' => false,
+    'japanese' => false,
+    'bengali' => false,
+    'tamil' => false,
+    'other' => false,
+],
+'forbidden_alphabet_deny' => true,
+```
+
+**Allow Latin and Chinese:**
+```php
+'allowed_alphabet' => [
+    'latin' => true,
+    'chinese' => true,
+    'arabic' => false,
+    'devanagari' => false,
+    'cyrillic' => false,
+    'thai' => false,
+    'korean' => false,
+    'japanese' => false,
+    'bengali' => false,
+    'tamil' => false,
+    'other' => false,
+],
+'forbidden_alphabet_deny' => true,
+```
+
+**Allow Indian Scripts:**
+```php
+'allowed_alphabet' => [
+    'latin' => true,
+    'chinese' => false,
+    'arabic' => false,
+    'devanagari' => true,  // Hindi, Marathi, Nepali
+    'cyrillic' => false,
+    'thai' => false,
+    'korean' => false,
+    'japanese' => false,
+    'bengali' => true,     // Bengali, Assamese
+    'tamil' => true,       // Tamil
+    'other' => false,
+],
+'forbidden_alphabet_deny' => true,
+```
+
+**Force CAPTCHA for Non-Latin:**
+```php
+'allowed_alphabet' => [
+    'latin' => true,
+    'chinese' => false,
+    'arabic' => false,
+    'devanagari' => false,
+    'cyrillic' => false,
+    'thai' => false,
+    'korean' => false,
+    'japanese' => false,
+    'bengali' => false,
+    'tamil' => false,
+    'other' => false,
+],
+'forbidden_alphabet_deny' => false, // Force CAPTCHA instead of denying
+```
+
+For detailed information about supported writing systems and advanced usage, see [ALPHABET_RESTRICTIONS.md](ALPHABET_RESTRICTIONS.md).
 
 ## Customization
 
