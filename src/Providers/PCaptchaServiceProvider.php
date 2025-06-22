@@ -105,21 +105,26 @@ class PCaptchaServiceProvider extends ServiceProvider
                 // Check if CAPTCHA is required based on session data (set by middleware)
                 \$captchaRequired = \$session->get('p_captcha_required', false);
                 
-                // Run basic bot detection
-                \$userAgent = \$request->userAgent();
+                // Only run bot detection on POST requests or when CAPTCHA is already required
                 \$botDetected = false;
-                
-                // Simple bot detection checks
-                if (empty(\$userAgent)) {
-                    \$botDetected = true;
-                } elseif (stripos(\$userAgent, 'bot') !== false || 
-                         stripos(\$userAgent, 'crawler') !== false ||
-                         stripos(\$userAgent, 'spider') !== false) {
-                    \$botDetected = true;
+                if (\$request->isMethod('POST') || \$captchaRequired) {
+                    \$userAgent = \$request->userAgent();
+                    
+                    // Simple bot detection checks
+                    if (empty(\$userAgent)) {
+                        \$botDetected = true;
+                    } elseif (stripos(\$userAgent, 'bot') !== false || 
+                             stripos(\$userAgent, 'crawler') !== false ||
+                             stripos(\$userAgent, 'spider') !== false) {
+                        \$botDetected = true;
+                    }
                 }
                 
-                // Check if force_visual_captcha is enabled
-                \$forceVisualCaptcha = config('p-captcha.force_visual_captcha', false);
+                // Check if force_visual_captcha is enabled (only on POST requests)
+                \$forceVisualCaptcha = false;
+                if (\$request->isMethod('POST')) {
+                    \$forceVisualCaptcha = config('p-captcha.force_visual_captcha', false);
+                }
                 
                 // Check for alphabet restrictions (if enabled)
                 \$alphabetRestrictionsEnabled = !empty(config('p-captcha.allowed_alphabet', []));
@@ -135,7 +140,7 @@ class PCaptchaServiceProvider extends ServiceProvider
                 if (config('app.debug', false)) {
                     \Log::info('P-CAPTCHA: @pcaptcha directive processed', [
                         'ip' => \$request->ip(),
-                        'user_agent' => \$userAgent,
+                        'user_agent' => \$request->userAgent(),
                         'bot_detected' => \$botDetected,
                         'force_visual_captcha' => \$forceVisualCaptcha,
                         'captcha_required_session' => \$captchaRequired,

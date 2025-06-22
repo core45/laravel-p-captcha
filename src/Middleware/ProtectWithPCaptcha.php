@@ -71,6 +71,15 @@ class ProtectWithPCaptcha
                 $visualCaptchaRequired = true;
                 // Set session flag to indicate CAPTCHA is required
                 session(['p_captcha_required' => true]);
+                
+                // Debug logging (only when APP_DEBUG is enabled)
+                if (config('app.debug', false)) {
+                    \Log::warning('P-CAPTCHA: Forbidden alphabet detected - forcing CAPTCHA', [
+                        'detected_alphabets' => $alphabetCheck['detected_alphabets'],
+                        'ip' => $request->ip(),
+                        'user_agent' => $request->userAgent()
+                    ]);
+                }
             }
         }
 
@@ -263,7 +272,7 @@ class ProtectWithPCaptcha
     }
 
     /**
-     * Check if visual CAPTCHA is required
+     * Check if visual CAPTCHA validation is required
      */
     protected function isVisualCaptchaRequired(Request $request, bool $botDetected): bool
     {
@@ -272,6 +281,15 @@ class ProtectWithPCaptcha
         if ($forceVisual) {
             if (config('app.debug', false)) {
                 \Log::info('P-CAPTCHA: Visual CAPTCHA required - forced in config');
+            }
+            return true;
+        }
+
+        // Check if CAPTCHA is required by session flag (set by alphabet/word detection)
+        $captchaRequiredBySession = session('p_captcha_required', false);
+        if ($captchaRequiredBySession) {
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Visual CAPTCHA required - session flag set');
             }
             return true;
         }

@@ -615,6 +615,12 @@ If you discover a security vulnerability, please send an e-mail to [security@you
 ### [Unreleased]
 
 #### Fixed
+- **CAPTCHA Display Logic**: Fixed multiple issues with CAPTCHA display behavior
+  - **Empty form showing CAPTCHA**: Fixed Blade directive to not show CAPTCHA on empty forms or GET requests unless specifically required
+  - **Russian text not showing CAPTCHA**: Fixed middleware logic to properly set session flags and force visual CAPTCHA for forbidden alphabets
+  - **Force visual CAPTCHA not working**: Fixed middleware logic to properly handle `force_visual_captcha` setting
+  - **Session flag handling**: Improved session flag logic to properly communicate CAPTCHA requirements between middleware and Blade directive
+
 - **Solution Structure Consistency**: Fixed "Return value must be of type array" error by ensuring all challenge solutions are consistently returned as arrays
   - `sequence_complete` challenges now return `['answer' => $value]` instead of just `$value`
   - Updated validation logic to handle the new array structure
@@ -622,16 +628,21 @@ If you discover a security vulnerability, please send an e-mail to [security@you
   - All challenge types now use consistent array-based solution structure
 
 #### Changed
+- **Blade Directive Logic**: Improved `@pcaptcha` directive to only run bot detection on POST requests or when CAPTCHA is already required
+- **Middleware Logic**: Enhanced middleware to properly handle session flags and force visual CAPTCHA scenarios
 - **Solution Format**: All challenge solutions now use consistent array format:
   - `beam_alignment`: `['offset_x' => $x, 'offset_y' => $y]`
   - `sequence_complete`: `['answer' => $number]`
 - **Validation Logic**: Updated to handle array-based solutions consistently
 
 #### Technical Details
+- Modified Blade directive to check request method before running bot detection
+- Updated middleware to properly set and check session flags for CAPTCHA requirements
+- Fixed `isVisualCaptchaRequired()` method to check session flags
 - Modified `generateSolution()` method to always return arrays
 - Updated `validateSequenceComplete()` to access `$challenge['solution']['answer']`
 - Updated test assertions to match new structure
-- Added comprehensive integration tests to verify fix
+- Added comprehensive integration tests to verify fixes
 
 ### [Previous Versions]
 
