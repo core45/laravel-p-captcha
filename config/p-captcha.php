@@ -17,10 +17,10 @@ return [
 
     /**
      * Available challenge types
-     * 
+     *
      * To disable a challenge type, simply remove or comment out the line.
      * The system will automatically use only the enabled types.
-     * 
+     *
      * Available types:
      * - 'beam_alignment': Drag beam source to target (visual)
      * - 'sequence_complete': Complete number sequences (mathematical)
