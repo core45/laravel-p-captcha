@@ -30,7 +30,7 @@ class PCaptchaService
         ];
 
         // Generate specific challenge data
-        $challenge = array_merge($challenge, $this->generateChallengeData($challengeType, $difficulty));
+        $challenge = array_merge($challenge, $this->generateChallengeData($challengeType));
 
         // Store in cache
         $ttl = config('p-captcha.cache.challenge_ttl', 600);
@@ -44,12 +44,27 @@ class PCaptchaService
      */
     protected function generateChallengeData(string $type): array
     {
+        // Get available challenge types to validate
+        $availableTypes = config('p-captcha.challenge_types', []);
+        $validTypes = [];
+        foreach ($availableTypes as $availableType) {
+            if (is_string($availableType) && !empty(trim($availableType))) {
+                $validTypes[] = trim($availableType);
+            }
+        }
+        
+        // If the requested type is not available, use the first available type
+        if (!in_array($type, $validTypes)) {
+            $type = !empty($validTypes) ? $validTypes[0] : 'beam_alignment';
+        }
+        
         switch ($type) {
             case 'beam_alignment':
                 return $this->generateBeamAlignment();
             case 'sequence_complete':
                 return $this->generateSequenceComplete();
             default:
+                // Fallback to beam alignment if type is not supported
                 return $this->generateBeamAlignment();
         }
     }
@@ -94,26 +109,38 @@ class PCaptchaService
     protected function generateSequenceComplete(): array
     {
         $sequences = [
-            ['type' => 'arithmetic', 'start' => 2, 'step' => 3, 'length' => 5],
-            ['type' => 'arithmetic', 'start' => 5, 'step' => 7, 'length' => 5],
-            ['type' => 'arithmetic', 'start' => 1, 'step' => 4, 'length' => 5],
-            ['type' => 'geometric', 'start' => 2, 'ratio' => 2, 'length' => 5],
-            ['type' => 'geometric', 'start' => 3, 'ratio' => 3, 'length' => 4],
+            // Simple arithmetic sequences (easy)
+            ['type' => 'arithmetic', 'start' => 1, 'step' => 2, 'length' => 4],  // 1, 3, 5, 7
+            ['type' => 'arithmetic', 'start' => 2, 'step' => 3, 'length' => 4],  // 2, 5, 8, 11
+            ['type' => 'arithmetic', 'start' => 5, 'step' => 5, 'length' => 4],  // 5, 10, 15, 20
+            ['type' => 'arithmetic', 'start' => 10, 'step' => 10, 'length' => 4], // 10, 20, 30, 40
+            
+            // Medium arithmetic sequences
+            ['type' => 'arithmetic', 'start' => 1, 'step' => 4, 'length' => 4],  // 1, 5, 9, 13
+            ['type' => 'arithmetic', 'start' => 3, 'step' => 7, 'length' => 4],  // 3, 10, 17, 24
+            
+            // Simple geometric sequences
+            ['type' => 'geometric', 'start' => 2, 'ratio' => 2, 'length' => 4],  // 2, 4, 8, 16
+            ['type' => 'geometric', 'start' => 3, 'ratio' => 2, 'length' => 4],  // 3, 6, 12, 24
+            ['type' => 'geometric', 'start' => 1, 'ratio' => 3, 'length' => 4],  // 1, 3, 9, 27
         ];
 
         $seq = $sequences[array_rand($sequences)];
         $sequence = $this->generateSequence($seq);
         $correctAnswer = array_pop($sequence);
 
-        // Generate wrong options
+        // Generate wrong options (make them more realistic)
         $wrongOptions = [
-            $correctAnswer + rand(1, 5),
-            $correctAnswer - rand(1, 5),
-            $correctAnswer * 2,
-            $correctAnswer + 10
+            $correctAnswer + rand(1, 3),
+            $correctAnswer - rand(1, 3),
+            $correctAnswer + rand(5, 10),
+            $correctAnswer - rand(5, 10)
         ];
         $choices = array_merge([$correctAnswer], array_slice($wrongOptions, 0, 3));
         shuffle($choices);
+
+        // Generate helpful instruction based on sequence type
+        $instruction = $this->generateSequenceInstruction($seq, $sequence);
 
         return [
             'challenge_data' => [
@@ -121,8 +148,57 @@ class PCaptchaService
                 'choices' => $choices
             ],
             'solution' => $correctAnswer,
-            'instructions' => 'Complete the sequence by selecting the next number'
+            'instructions' => $instruction
         ];
+    }
+
+    /**
+     * Generate helpful instruction for sequence challenge
+     */
+    protected function generateSequenceInstruction(array $config, array $sequence): string
+    {
+        switch ($config['type']) {
+            case 'arithmetic':
+                $step = $config['step'];
+                $lastNumber = end($sequence);
+                $nextNumber = $lastNumber + $step;
+                
+                if ($step == 1) {
+                    return "Add 1 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 2) {
+                    return "Add 2 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 3) {
+                    return "Add 3 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 4) {
+                    return "Add 4 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 5) {
+                    return "Add 5 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 7) {
+                    return "Add 7 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 10) {
+                    return "Add 10 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step > 0) {
+                    return "Add {$step} to the last number ({$lastNumber}) to get the next number.";
+                } else {
+                    return "Subtract " . abs($step) . " from the last number ({$lastNumber}) to get the next number.";
+                }
+                
+            case 'geometric':
+                $ratio = $config['ratio'];
+                $lastNumber = end($sequence);
+                $nextNumber = $lastNumber * $ratio;
+                
+                if ($ratio == 2) {
+                    return "Double the last number ({$lastNumber}) to get the next number.";
+                } elseif ($ratio == 3) {
+                    return "Triple the last number ({$lastNumber}) to get the next number.";
+                } else {
+                    return "Multiply the last number ({$lastNumber}) by {$ratio} to get the next number.";
+                }
+                
+            default:
+                return "Complete the sequence by selecting the next number.";
+        }
     }
 
     /**
@@ -252,16 +328,39 @@ class PCaptchaService
             return 'proof_of_work';
         }
 
+        // Get available challenge types from config
+        $allChallengeTypes = config('p-captcha.challenge_types', []);
+        
+        // Filter out any disabled or invalid types
+        $availableTypes = [];
+        foreach ($allChallengeTypes as $type) {
+            if (is_string($type) && !empty(trim($type))) {
+                $availableTypes[] = trim($type);
+            }
+        }
+        
+        // If no valid types are available, fallback to beam_alignment
+        if (empty($availableTypes)) {
+            return 'beam_alignment';
+        }
+        
+        // Remove proof_of_work from visual types if it exists
+        $visualTypes = array_diff($availableTypes, ['proof_of_work']);
+        
+        // If no visual types available, use the first available type
+        if (empty($visualTypes)) {
+            return $availableTypes[0];
+        }
+
         // Normal distribution
         $visualPercentage = config('p-captcha.visual_challenge_percentage', 70);
-        $challengeTypes = config('p-captcha.challenge_types');
-        $visualTypes = array_diff($challengeTypes, ['proof_of_work']);
 
         if (rand(1, 100) <= $visualPercentage) {
             return $visualTypes[array_rand($visualTypes)];
         }
 
-        return 'proof_of_work';
+        // If proof_of_work is available, use it, otherwise fallback to visual
+        return in_array('proof_of_work', $availableTypes) ? 'proof_of_work' : $visualTypes[array_rand($visualTypes)];
     }
 
     /**
