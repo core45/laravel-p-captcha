@@ -51,13 +51,14 @@ class ProtectWithPCaptcha
             ]);
         }
 
+        // If no CAPTCHA is required and no bot detected, allow through
         if (!$visualCaptchaRequired && !$botDetected) {
             // Normal user with no suspicious behavior - allow through
             return $next($request);
         }
 
+        // If bot detected but no visual CAPTCHA provided, require it
         if ($botDetected && !$this->hasVisualCaptchaData($request)) {
-            // Bot detected but no visual CAPTCHA provided - require it
             return $this->requireVisualCaptcha($request, 'Suspicious activity detected. Please complete verification.');
         }
 
@@ -69,8 +70,8 @@ class ProtectWithPCaptcha
             }
         }
 
-        // Validate visual CAPTCHA if present (only once)
-        if ($this->hasVisualCaptchaData($request)) {
+        // Validate visual CAPTCHA only if it's required or if data is present
+        if ($visualCaptchaRequired && $this->hasVisualCaptchaData($request)) {
             $isValid = $this->validateVisualCaptcha($request);
 
             if ($isValid) {
@@ -80,6 +81,11 @@ class ProtectWithPCaptcha
                 // CAPTCHA failed
                 return $this->handleCaptchaFailure($request);
             }
+        }
+
+        // If visual CAPTCHA is required but not provided
+        if ($visualCaptchaRequired && !$this->hasVisualCaptchaData($request)) {
+            return $this->requireVisualCaptcha($request, 'Please complete the verification challenge.');
         }
 
         // If we get here, some form of CAPTCHA is required
