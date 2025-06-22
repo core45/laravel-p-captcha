@@ -8,64 +8,59 @@ use Illuminate\Support\Str;
 
 class PCaptchaService
 {
+    protected LanguageDetectionService $languageDetectionService;
+
+    public function __construct(LanguageDetectionService $languageDetectionService)
+    {
+        $this->languageDetectionService = $languageDetectionService;
+    }
+
     /**
      * Generate a new CAPTCHA challenge
      */
     public function generateChallenge(): array
     {
-        $sessionId = Session::getId();
-        $challengeId = Str::random(32);
-
-        // Determine difficulty and type based on user history
+        $sessionId = session()->getId();
+        $challengeId = $this->generateChallengeId();
         $difficulty = $this->calculateDifficulty($sessionId);
         $challengeType = $this->chooseChallengeType($sessionId);
 
-        // Create base challenge structure
+        $challengeData = $this->generateChallengeData($challengeType);
+        $solution = $this->generateSolution($challengeType, $challengeData);
+
         $challenge = [
             'id' => $challengeId,
             'type' => $challengeType,
             'difficulty' => $difficulty,
-            'created_at' => now()->toISOString(),
-            'session_id' => $sessionId
+            'challenge_data' => $challengeData,
+            'solution' => $solution,
+            'session_id' => $sessionId,
+            'created_at' => now()->timestamp,
+            'expires_at' => now()->addMinutes(config('p-captcha.security.challenge_timeout', 10))->timestamp,
         ];
 
-        // Generate specific challenge data
-        $challenge = array_merge($challenge, $this->generateChallengeData($challengeType));
-
-        // Store in cache
-        $ttl = config('p-captcha.cache.challenge_ttl', 600);
-        Cache::put($this->getCacheKey('challenge', $challengeId), $challenge, $ttl);
+        // Store challenge in cache
+        Cache::put(
+            $this->getCacheKey('challenge', $challengeId),
+            $challenge,
+            config('p-captcha.security.challenge_timeout', 10) * 60
+        );
 
         return $challenge;
     }
 
     /**
-     * Generate challenge-specific data
+     * Generate challenge data based on type
      */
     protected function generateChallengeData(string $type): array
     {
-        // Get available challenge types to validate
-        $availableTypes = config('p-captcha.challenge_types', []);
-        $validTypes = [];
-        foreach ($availableTypes as $availableType) {
-            if (is_string($availableType) && !empty(trim($availableType))) {
-                $validTypes[] = trim($availableType);
-            }
-        }
-        
-        // If the requested type is not available, use the first available type
-        if (!in_array($type, $validTypes)) {
-            $type = !empty($validTypes) ? $validTypes[0] : 'beam_alignment';
-        }
-        
         switch ($type) {
             case 'beam_alignment':
                 return $this->generateBeamAlignment();
             case 'sequence_complete':
                 return $this->generateSequenceComplete();
             default:
-                // Fallback to beam alignment if type is not supported
-                return $this->generateBeamAlignment();
+                return $this->generateBeamAlignment(); // Default fallback
         }
     }
 
@@ -74,32 +69,24 @@ class PCaptchaService
      */
     protected function generateBeamAlignment(): array
     {
-        $config = config('p-captcha.ui.beam_alignment', []);
-        $width = $config['canvas_width'] ?? 400;
-        $height = $config['canvas_height'] ?? 300;
-        $tolerance = $config['tolerance'] ?? 15;
+        $tolerance = config('p-captcha.beam_alignment.tolerance', 20);
+        $gridSize = config('p-captcha.beam_alignment.grid_size', 300);
+        $beamSize = config('p-captcha.beam_alignment.beam_size', 40);
 
-        $sourceX = rand(50, 150);
-        $sourceY = rand(100, $height - 100);
-        $targetX = rand($width - 150, $width - 50);
-        $targetY = rand(100, $height - 100);
-
-        $correctOffsetX = $targetX - $sourceX;
-        $correctOffsetY = $targetY - $sourceY;
+        // Generate random positions for source and target
+        $sourceX = rand($beamSize, $gridSize - $beamSize);
+        $sourceY = rand($beamSize, $gridSize - $beamSize);
+        $targetX = rand($beamSize, $gridSize - $beamSize);
+        $targetY = rand($beamSize, $gridSize - $beamSize);
 
         return [
-            'challenge_data' => [
-                'source' => ['x' => $sourceX, 'y' => $sourceY],
-                'target' => ['x' => $targetX, 'y' => $targetY],
-                'tolerance' => $tolerance,
-                'canvas_width' => $width,
-                'canvas_height' => $height
-            ],
-            'solution' => [
-                'offset_x' => $correctOffsetX,
-                'offset_y' => $correctOffsetY
-            ],
-            'instructions' => 'Align the beam source with the target by dragging the source to enable particle collision'
+            'grid_size' => $gridSize,
+            'beam_size' => $beamSize,
+            'tolerance' => $tolerance,
+            'source_x' => $sourceX,
+            'source_y' => $sourceY,
+            'target_x' => $targetX,
+            'target_y' => $targetY,
         ];
     }
 
@@ -108,95 +95,53 @@ class PCaptchaService
      */
     protected function generateSequenceComplete(): array
     {
-        $sequences = [
-            // Simple arithmetic sequences (easy)
-            ['type' => 'arithmetic', 'start' => 1, 'step' => 2, 'length' => 4],  // 1, 3, 5, 7
-            ['type' => 'arithmetic', 'start' => 2, 'step' => 3, 'length' => 4],  // 2, 5, 8, 11
-            ['type' => 'arithmetic', 'start' => 5, 'step' => 5, 'length' => 4],  // 5, 10, 15, 20
-            ['type' => 'arithmetic', 'start' => 10, 'step' => 10, 'length' => 4], // 10, 20, 30, 40
-            
-            // Medium arithmetic sequences
-            ['type' => 'arithmetic', 'start' => 1, 'step' => 4, 'length' => 4],  // 1, 5, 9, 13
-            ['type' => 'arithmetic', 'start' => 3, 'step' => 7, 'length' => 4],  // 3, 10, 17, 24
-            
-            // Simple geometric sequences
-            ['type' => 'geometric', 'start' => 2, 'ratio' => 2, 'length' => 4],  // 2, 4, 8, 16
-            ['type' => 'geometric', 'start' => 3, 'ratio' => 2, 'length' => 4],  // 3, 6, 12, 24
-            ['type' => 'geometric', 'start' => 1, 'ratio' => 3, 'length' => 4],  // 1, 3, 9, 27
-        ];
-
-        $seq = $sequences[array_rand($sequences)];
-        $fullSequence = $this->generateSequence($seq);
+        $config = config('p-captcha.sequence_complete', []);
         
-        // Debug logging (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Sequence generation details', [
-                'sequence_config' => $seq,
-                'full_sequence_before_pop' => $fullSequence,
-                'sequence_length' => count($fullSequence)
-            ]);
-        }
+        $sequence = $this->generateSequence($config);
+        $instruction = $this->generateSequenceInstruction($config, $sequence);
         
-        $correctAnswer = array_pop($fullSequence);
-        $sequence = $fullSequence; // This is now the sequence without the answer
-
-        // Debug logging (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Sequence after pop', [
-                'correct_answer' => $correctAnswer,
-                'sequence_after_pop' => $sequence,
-                'sequence_length_after_pop' => count($sequence)
-            ]);
-        }
-
-        // Generate wrong options (make them more realistic)
-        $wrongOptions = [
-            $correctAnswer + rand(1, 3),
-            $correctAnswer - rand(1, 3),
-            $correctAnswer + rand(5, 10),
-            $correctAnswer - rand(5, 10)
-        ];
-        $choices = array_merge([$correctAnswer], array_slice($wrongOptions, 0, 3));
-        shuffle($choices);
-
-        // Generate helpful instruction based on sequence type
-        $instruction = $this->generateSequenceInstruction($seq, $sequence);
+        // Remove the last number to create the challenge
+        $challengeSequence = array_slice($sequence, 0, -1);
+        $correctAnswer = end($sequence);
 
         return [
-            'challenge_data' => [
-                'sequence' => $sequence,
-                'choices' => $choices
-            ],
-            'solution' => $correctAnswer,
-            'instructions' => $instruction
+            'sequence' => $challengeSequence,
+            'instruction' => $instruction,
+            'correct_answer' => $correctAnswer,
+            'sequence_type' => $config['type'] ?? 'arithmetic',
         ];
     }
 
     /**
-     * Generate helpful instruction for sequence challenge
+     * Generate solution for challenge
+     */
+    protected function generateSolution(string $type, array $challengeData): array
+    {
+        switch ($type) {
+            case 'beam_alignment':
+                return [
+                    'offset_x' => $challengeData['target_x'] - $challengeData['source_x'],
+                    'offset_y' => $challengeData['target_y'] - $challengeData['source_y'],
+                ];
+            case 'sequence_complete':
+                return $challengeData['correct_answer'];
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Generate instruction for sequence completion
      */
     protected function generateSequenceInstruction(array $config, array $sequence): string
     {
-        switch ($config['type']) {
+        switch ($config['type'] ?? 'arithmetic') {
             case 'arithmetic':
-                $step = $config['step'];
+                $step = $config['step'] ?? 1;
                 $lastNumber = end($sequence);
-                $nextNumber = $lastNumber + $step;
                 
                 if ($step == 1) {
                     return "Add 1 to the last number ({$lastNumber}) to get the next number.";
-                } elseif ($step == 2) {
-                    return "Add 2 to the last number ({$lastNumber}) to get the next number.";
-                } elseif ($step == 3) {
-                    return "Add 3 to the last number ({$lastNumber}) to get the next number.";
-                } elseif ($step == 4) {
-                    return "Add 4 to the last number ({$lastNumber}) to get the next number.";
-                } elseif ($step == 5) {
-                    return "Add 5 to the last number ({$lastNumber}) to get the next number.";
-                } elseif ($step == 7) {
-                    return "Add 7 to the last number ({$lastNumber}) to get the next number.";
-                } elseif ($step == 10) {
-                    return "Add 10 to the last number ({$lastNumber}) to get the next number.";
                 } elseif ($step > 0) {
                     return "Add {$step} to the last number ({$lastNumber}) to get the next number.";
                 } else {
@@ -397,32 +342,17 @@ class PCaptchaService
         $availableTypes = [];
         foreach ($allChallengeTypes as $type) {
             if (is_string($type) && !empty(trim($type))) {
-                $availableTypes[] = trim($type);
+                $availableTypes[] = $type;
             }
         }
-        
-        // If no valid types are available, fallback to beam_alignment
+
+        // If no valid types found, use default
         if (empty($availableTypes)) {
-            return 'beam_alignment';
-        }
-        
-        // Remove proof_of_work from visual types if it exists
-        $visualTypes = array_diff($availableTypes, ['proof_of_work']);
-        
-        // If no visual types available, use the first available type
-        if (empty($visualTypes)) {
-            return $availableTypes[0];
+            $availableTypes = ['beam_alignment', 'sequence_complete'];
         }
 
-        // Normal distribution
-        $visualPercentage = config('p-captcha.visual_challenge_percentage', 70);
-
-        if (rand(1, 100) <= $visualPercentage) {
-            return $visualTypes[array_rand($visualTypes)];
-        }
-
-        // If proof_of_work is available, use it, otherwise fallback to visual
-        return in_array('proof_of_work', $availableTypes) ? 'proof_of_work' : $visualTypes[array_rand($visualTypes)];
+        // Randomly select a challenge type
+        return $availableTypes[array_rand($availableTypes)];
     }
 
     /**
@@ -430,20 +360,25 @@ class PCaptchaService
      */
     protected function trackValidationResult(string $sessionId, bool $isValid, string $challengeType): void
     {
-        $ttl = config('p-captcha.cache.failure_tracking_ttl', 3600);
-
         if (!$isValid) {
-            // Increment total failures
+            // Increment failure counter
             $failures = Cache::get($this->getCacheKey('failures', $sessionId), 0);
-            Cache::put($this->getCacheKey('failures', $sessionId), $failures + 1, $ttl);
+            Cache::put($this->getCacheKey('failures', $sessionId), $failures + 1, 3600); // 1 hour
+
+            // Track visual failures separately
+            if (in_array($challengeType, ['beam_alignment', 'sequence_complete'])) {
+                $visualFailures = Cache::get($this->getCacheKey('visual_failures', $sessionId), 0);
+                Cache::put($this->getCacheKey('visual_failures', $sessionId), $visualFailures + 1, 3600);
+            }
         } else {
-            // Reset counters on success
+            // Reset failure counters on success
             Cache::forget($this->getCacheKey('failures', $sessionId));
+            Cache::forget($this->getCacheKey('visual_failures', $sessionId));
         }
     }
 
     /**
-     * Get frontend-safe challenge data (removes solutions)
+     * Get challenge data for frontend
      */
     public function getChallengeForFrontend(string $challengeId): ?array
     {
@@ -453,439 +388,131 @@ class PCaptchaService
             return null;
         }
 
-        // Create safe version for frontend
-        $frontendChallenge = [
+        // Return only the data needed for frontend (exclude solution)
+        return [
             'id' => $challenge['id'],
             'type' => $challenge['type'],
-            'instructions' => $challenge['instructions'],
-            'challenge_data' => $challenge['challenge_data']
+            'difficulty' => $challenge['difficulty'],
+            'challenge_data' => $challenge['challenge_data'],
+            'expires_at' => $challenge['expires_at'],
         ];
-
-        // Remove sensitive data
-        if (isset($challenge['solution'])) {
-            unset($frontendChallenge['solution']);
-        }
-
-        return $frontendChallenge;
     }
 
     /**
-     * Render CAPTCHA HTML for Blade directive
+     * Render CAPTCHA HTML
      */
     public function renderCaptcha(string $options = ''): string
     {
-        $optionsArray = $this->parseOptions($options);
+        $parsedOptions = $this->parseOptions($options);
+        $challenge = $this->generateChallenge();
 
-        // Debug logging (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Options being passed to view', $optionsArray);
+        $html = '<div class="p-captcha-container" data-challenge-id="' . $challenge['id'] . '">';
+        $html .= '<input type="hidden" name="_captcha_token" value="' . $challenge['id'] . '">';
+        
+        // Add challenge-specific HTML
+        switch ($challenge['type']) {
+            case 'beam_alignment':
+                $html .= $this->renderBeamAlignmentChallenge($challenge);
+                break;
+            case 'sequence_complete':
+                $html .= $this->renderSequenceChallenge($challenge);
+                break;
+            default:
+                $html .= '<p>Challenge type not supported</p>';
         }
 
-        return view('p-captcha::captcha', [
-            'options' => $optionsArray,
-            'config' => config('p-captcha')
-        ])->render();
+        $html .= '</div>';
+
+        return $html;
     }
 
     /**
-     * Parse options for Blade directive
+     * Parse options string
      */
     protected function parseOptions(string $options): array
     {
-        // All options are now controlled via config file
-        // Parameters passed to @pcaptcha directive are ignored
+        $parsed = [];
         
-        $theme = config('p-captcha.ui.theme', 'dark');
-        $forceVisualCaptcha = config('p-captcha.force_visual_captcha', false);
-        
-        // Debug logging (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Parsing options from config', [
-                'theme' => $theme,
-                'force_visual_captcha' => $forceVisualCaptcha,
-                'force_visual_captcha_type' => gettype($forceVisualCaptcha),
-                'force_visual_captcha_bool' => (bool) $forceVisualCaptcha,
-                'config_path' => 'p-captcha'
-            ]);
+        if (empty($options)) {
+            return $parsed;
         }
-        
-        $result = [
-            'id' => 'p-captcha-' . Str::random(8),
-            'theme' => $theme,
-            'auto_load' => (bool) $forceVisualCaptcha // Explicit boolean conversion
-        ];
-        
-        // Debug logging (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Final options array', $result);
+
+        $pairs = explode(' ', $options);
+        foreach ($pairs as $pair) {
+            if (strpos($pair, '=') !== false) {
+                [$key, $value] = explode('=', $pair, 2);
+                $parsed[$key] = $value;
+            }
         }
-        
-        return $result;
+
+        return $parsed;
     }
 
     /**
-     * Generate cache key with prefix
+     * Render beam alignment challenge HTML
+     */
+    protected function renderBeamAlignmentChallenge(array $challenge): string
+    {
+        $data = $challenge['challenge_data'];
+        
+        $html = '<div class="beam-alignment-challenge">';
+        $html .= '<p>Drag the beam source to align with the target</p>';
+        $html .= '<div class="beam-grid" style="width: ' . $data['grid_size'] . 'px; height: ' . $data['grid_size'] . 'px;">';
+        $html .= '<div class="beam-source" style="left: ' . $data['source_x'] . 'px; top: ' . $data['source_y'] . 'px;"></div>';
+        $html .= '<div class="beam-target" style="left: ' . $data['target_x'] . 'px; top: ' . $data['target_y'] . 'px;"></div>';
+        $html .= '</div>';
+        $html .= '<input type="hidden" name="p_captcha_solution" value="">';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    /**
+     * Render sequence challenge HTML
+     */
+    protected function renderSequenceChallenge(array $challenge): string
+    {
+        $data = $challenge['challenge_data'];
+        
+        $html = '<div class="sequence-challenge">';
+        $html .= '<p>' . htmlspecialchars($data['instruction']) . '</p>';
+        $html .= '<div class="sequence-display">';
+        $html .= implode(' → ', $data['sequence']) . ' → <input type="number" name="p_captcha_solution" required>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    /**
+     * Generate cache key
      */
     protected function getCacheKey(string $type, string $identifier): string
     {
-        $prefix = config('p-captcha.cache.prefix', 'p_captcha:');
-        return $prefix . $type . ':' . $identifier;
+        return 'p_captcha_' . $type . '_' . $identifier;
     }
 
     /**
-     * Check if the request contains forbidden alphabets
-     * 
-     * @param array $requestData The request data to check
-     * @return array Array with 'forbidden_detected' => bool and 'detected_alphabets' => array
+     * Generate unique challenge ID
+     */
+    protected function generateChallengeId(): string
+    {
+        return 'challenge_' . uniqid() . '_' . bin2hex(random_bytes(8));
+    }
+
+    /**
+     * Check alphabet restrictions using LanguageDetectionService
      */
     public function checkAlphabetRestrictions(array $requestData): array
     {
-        $allowedAlphabets = config('p-captcha.allowed_alphabet', []);
-        $detectedAlphabets = $this->detectAlphabetsInData($requestData);
-        $forbiddenDetected = false;
-
-        foreach ($detectedAlphabets as $alphabet) {
-            if (isset($allowedAlphabets[$alphabet]) && !$allowedAlphabets[$alphabet]) {
-                $forbiddenDetected = true;
-                break;
-            }
-        }
-
-        // Debug logging (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Alphabet check result', [
-                'detected_alphabets' => $detectedAlphabets,
-                'forbidden_detected' => $forbiddenDetected,
-                'allowed_alphabets' => $allowedAlphabets
-            ]);
-        }
-
-        return [
-            'forbidden_detected' => $forbiddenDetected,
-            'detected_alphabets' => $detectedAlphabets
-        ];
+        return $this->languageDetectionService->checkAlphabetRestrictions($requestData);
     }
 
     /**
-     * Detect alphabets present in the given data
-     * 
-     * @param array $data The data to analyze
-     * @return array Array of detected alphabet names
-     */
-    protected function detectAlphabetsInData(array $data): array
-    {
-        $detectedAlphabets = [];
-        $textFields = $this->extractTextFields($data);
-
-        foreach ($textFields as $text) {
-            $alphabets = $this->detectAlphabetsInText($text);
-            $detectedAlphabets = array_merge($detectedAlphabets, $alphabets);
-        }
-
-        return array_unique($detectedAlphabets);
-    }
-
-    /**
-     * Extract all text fields from nested data array
-     * 
-     * @param array $data The data array
-     * @return array Array of text strings
-     */
-    protected function extractTextFields(array $data): array
-    {
-        $textFields = [];
-
-        foreach ($data as $key => $value) {
-            // Skip CAPTCHA-related fields
-            if (str_starts_with($key, '_captcha') || str_starts_with($key, 'captcha')) {
-                continue;
-            }
-
-            if (is_string($value) && !empty(trim($value))) {
-                $textFields[] = $value;
-            } elseif (is_array($value)) {
-                $textFields = array_merge($textFields, $this->extractTextFields($value));
-            }
-        }
-
-        return $textFields;
-    }
-
-    /**
-     * Detect alphabets present in a text string
-     * 
-     * @param string $text The text to analyze
-     * @return array Array of detected alphabet names
-     */
-    protected function detectAlphabetsInText(string $text): array
-    {
-        $detectedAlphabets = [];
-        $hasRecognizedAlphabet = false;
-
-        // 1. Latin (Basic Latin + Latin-1 Supplement + Latin Extended)
-        if (preg_match('/[\x{0041}-\x{007A}\x{00C0}-\x{00FF}\x{0100}-\x{017F}\x{0180}-\x{024F}]/u', $text)) {
-            $detectedAlphabets[] = 'latin';
-            $hasRecognizedAlphabet = true;
-        }
-
-        // 2. Chinese (Simplified and Traditional)
-        if (preg_match('/[\x{4E00}-\x{9FFF}\x{3400}-\x{4DBF}\x{20000}-\x{2A6DF}\x{2A700}-\x{2B73F}\x{2B740}-\x{2B81F}\x{2B820}-\x{2CEAF}\x{F900}-\x{FAFF}\x{2F800}-\x{2FA1F}]/u', $text)) {
-            $detectedAlphabets[] = 'chinese';
-            $hasRecognizedAlphabet = true;
-        }
-
-        // 3. Arabic
-        if (preg_match('/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}\x{FB50}-\x{FDFF}\x{FE70}-\x{FEFF}]/u', $text)) {
-            $detectedAlphabets[] = 'arabic';
-            $hasRecognizedAlphabet = true;
-        }
-
-        // 4. Devanagari (Hindi, Marathi, Nepali, etc.)
-        if (preg_match('/[\x{0900}-\x{097F}]/u', $text)) {
-            $detectedAlphabets[] = 'devanagari';
-            $hasRecognizedAlphabet = true;
-        }
-
-        // 5. Cyrillic
-        if (preg_match('/[\x{0400}-\x{04FF}\x{0500}-\x{052F}\x{2DE0}-\x{2DFF}\x{A640}-\x{A69F}]/u', $text)) {
-            $detectedAlphabets[] = 'cyrillic';
-            $hasRecognizedAlphabet = true;
-        }
-
-        // 6. Thai
-        if (preg_match('/[\x{0E00}-\x{0E7F}]/u', $text)) {
-            $detectedAlphabets[] = 'thai';
-            $hasRecognizedAlphabet = true;
-        }
-
-        // 7. Korean (Hangul)
-        if (preg_match('/[\x{AC00}-\x{D7AF}\x{1100}-\x{11FF}\x{3130}-\x{318F}]/u', $text)) {
-            $detectedAlphabets[] = 'korean';
-            $hasRecognizedAlphabet = true;
-        }
-
-        // 8. Japanese (Hiragana, Katakana, Kanji)
-        if (preg_match('/[\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{4E00}-\x{9FFF}\x{3400}-\x{4DBF}]/u', $text)) {
-            $detectedAlphabets[] = 'japanese';
-            $hasRecognizedAlphabet = true;
-        }
-
-        // 9. Bengali
-        if (preg_match('/[\x{0980}-\x{09FF}]/u', $text)) {
-            $detectedAlphabets[] = 'bengali';
-            $hasRecognizedAlphabet = true;
-        }
-
-        // 10. Tamil
-        if (preg_match('/[\x{0B80}-\x{0BFF}]/u', $text)) {
-            $detectedAlphabets[] = 'tamil';
-            $hasRecognizedAlphabet = true;
-        }
-
-        // Check for other writing systems not in the top 10
-        // This covers: Hebrew, Greek, Telugu, Kannada, Malayalam, Gujarati, Punjabi, Odia, Sinhala, Khmer, Lao, Myanmar, Ethiopic, Armenian, Georgian, Mongolian, Tibetan, and any other Unicode scripts
-        $otherScripts = [
-            // Hebrew
-            '/[\x{0590}-\x{05FF}\x{FB1D}-\x{FB4F}]/u',
-            // Greek
-            '/[\x{0370}-\x{03FF}\x{1F00}-\x{1FFF}]/u',
-            // Telugu
-            '/[\x{0C00}-\x{0C7F}]/u',
-            // Kannada
-            '/[\x{0C80}-\x{0CFF}]/u',
-            // Malayalam
-            '/[\x{0D00}-\x{0D7F}]/u',
-            // Gujarati
-            '/[\x{0A80}-\x{0AFF}]/u',
-            // Punjabi (Gurmukhi)
-            '/[\x{0A00}-\x{0A7F}]/u',
-            // Odia
-            '/[\x{0B00}-\x{0B7F}]/u',
-            // Sinhala
-            '/[\x{0D80}-\x{0DFF}]/u',
-            // Khmer
-            '/[\x{1780}-\x{17FF}]/u',
-            // Lao
-            '/[\x{0E80}-\x{0EFF}]/u',
-            // Myanmar
-            '/[\x{1000}-\x{109F}]/u',
-            // Ethiopic (Amharic, Tigrinya, etc.)
-            '/[\x{1200}-\x{137F}\x{1380}-\x{139F}\x{2D80}-\x{2DDF}\x{AB00}-\x{AB2F}]/u',
-            // Armenian
-            '/[\x{0530}-\x{058F}]/u',
-            // Georgian
-            '/[\x{10A0}-\x{10FF}\x{2D00}-\x{2D2F}]/u',
-            // Mongolian
-            '/[\x{1800}-\x{18AF}]/u',
-            // Tibetan
-            '/[\x{0F00}-\x{0FFF}]/u',
-            // General Unicode scripts (catch-all for any other scripts)
-            '/[\x{2000}-\x{206F}]/u', // General Punctuation
-            '/[\x{2100}-\x{214F}]/u', // Letterlike Symbols
-            '/[\x{2200}-\x{22FF}]/u', // Mathematical Operators
-            '/[\x{2300}-\x{23FF}]/u', // Miscellaneous Technical
-            '/[\x{2400}-\x{243F}]/u', // Control Pictures
-            '/[\x{2440}-\x{245F}]/u', // Optical Character Recognition
-            '/[\x{2460}-\x{24FF}]/u', // Enclosed Alphanumerics
-            '/[\x{2500}-\x{257F}]/u', // Box Drawing
-            '/[\x{2580}-\x{259F}]/u', // Block Elements
-            '/[\x{25A0}-\x{25FF}]/u', // Geometric Shapes
-            '/[\x{2600}-\x{26FF}]/u', // Miscellaneous Symbols
-            '/[\x{2700}-\x{27BF}]/u', // Dingbats
-            '/[\x{2800}-\x{28FF}]/u', // Braille Patterns
-            '/[\x{2900}-\x{297F}]/u', // Supplemental Arrows-B
-            '/[\x{2980}-\x{29FF}]/u', // Miscellaneous Mathematical Symbols-B
-            '/[\x{2A00}-\x{2AFF}]/u', // Supplemental Mathematical Operators
-            '/[\x{2B00}-\x{2BFF}]/u', // Miscellaneous Symbols and Arrows
-            '/[\x{2C00}-\x{2C5F}]/u', // Glagolitic
-            '/[\x{2C60}-\x{2C7F}]/u', // Latin Extended-C
-            '/[\x{2C80}-\x{2CFF}]/u', // Coptic
-            '/[\x{2D00}-\x{2D2F}]/u', // Georgian Supplement
-            '/[\x{2D30}-\x{2D7F}]/u', // Tifinagh
-            '/[\x{2D80}-\x{2DDF}]/u', // Ethiopic Extended
-            '/[\x{2DE0}-\x{2DFF}]/u', // Cyrillic Extended-A
-            '/[\x{2E00}-\x{2E7F}]/u', // Supplemental Punctuation
-            '/[\x{2E80}-\x{2EFF}]/u', // CJK Radicals Supplement
-            '/[\x{2F00}-\x{2FDF}]/u', // Kangxi Radicals
-            '/[\x{2FF0}-\x{2FFF}]/u', // Ideographic Description Characters
-            '/[\x{3000}-\x{303F}]/u', // CJK Symbols and Punctuation
-            '/[\x{3040}-\x{309F}]/u', // Hiragana
-            '/[\x{30A0}-\x{30FF}]/u', // Katakana
-            '/[\x{3100}-\x{312F}]/u', // Bopomofo
-            '/[\x{3130}-\x{318F}]/u', // Hangul Compatibility Jamo
-            '/[\x{3190}-\x{319F}]/u', // Kanbun
-            '/[\x{31A0}-\x{31BF}]/u', // Bopomofo Extended
-            '/[\x{31C0}-\x{31EF}]/u', // CJK Strokes
-            '/[\x{31F0}-\x{31FF}]/u', // Katakana Phonetic Extensions
-            '/[\x{3200}-\x{32FF}]/u', // Enclosed CJK Letters and Months
-            '/[\x{3300}-\x{33FF}]/u', // CJK Compatibility
-            '/[\x{3400}-\x{4DBF}]/u', // CJK Unified Ideographs Extension A
-            '/[\x{4DC0}-\x{4DFF}]/u', // Yijing Hexagram Symbols
-            '/[\x{4E00}-\x{9FFF}]/u', // CJK Unified Ideographs
-            '/[\x{A000}-\x{A48F}]/u', // Yi Syllables
-            '/[\x{A490}-\x{A4CF}]/u', // Yi Radicals
-            '/[\x{A4D0}-\x{A4FF}]/u', // Lisu
-            '/[\x{A500}-\x{A63F}]/u', // Vai
-            '/[\x{A640}-\x{A69F}]/u', // Cyrillic Extended-B
-            '/[\x{A6A0}-\x{A6FF}]/u', // Bamum
-            '/[\x{A700}-\x{A71F}]/u', // Modifier Tone Letters
-            '/[\x{A720}-\x{A7FF}]/u', // Latin Extended-D
-            '/[\x{A800}-\x{A82F}]/u', // Syloti Nagri
-            '/[\x{A830}-\x{A83F}]/u', // Common Indic Number Forms
-            '/[\x{A840}-\x{A87F}]/u', // Phags-pa
-            '/[\x{A880}-\x{A8DF}]/u', // Saurashtra
-            '/[\x{A8E0}-\x{A8FF}]/u', // Devanagari Extended
-            '/[\x{A900}-\x{A92F}]/u', // Kayah Li
-            '/[\x{A930}-\x{A95F}]/u', // Rejang
-            '/[\x{A960}-\x{A97F}]/u', // Hangul Jamo Extended-A
-            '/[\x{A980}-\x{A9DF}]/u', // Javanese
-            '/[\x{A9E0}-\x{A9FF}]/u', // Myanmar Extended-B
-            '/[\x{AA00}-\x{AA5F}]/u', // Cham
-            '/[\x{AA60}-\x{AA7F}]/u', // Myanmar Extended-A
-            '/[\x{AA80}-\x{AADF}]/u', // Tai Viet
-            '/[\x{AAE0}-\x{AAFF}]/u', // Meetei Mayek Extensions
-            '/[\x{AB00}-\x{AB2F}]/u', // Ethiopic Extended-A
-            '/[\x{AB30}-\x{AB6F}]/u', // Latin Extended-E
-            '/[\x{AB70}-\x{ABBF}]/u', // Cherokee Supplement
-            '/[\x{ABC0}-\x{ABFF}]/u', // Meetei Mayek
-            '/[\x{AC00}-\x{D7AF}]/u', // Hangul Syllables
-            '/[\x{D7B0}-\x{D7FF}]/u', // Hangul Jamo Extended-B
-            '/[\x{D800}-\x{DB7F}]/u', // High Surrogates
-            '/[\x{DB80}-\x{DBFF}]/u', // High Private Use Surrogates
-            '/[\x{DC00}-\x{DFFF}]/u', // Low Surrogates
-            '/[\x{E000}-\x{F8FF}]/u', // Private Use Area
-            '/[\x{F900}-\x{FAFF}]/u', // CJK Compatibility Ideographs
-            '/[\x{FB00}-\x{FB4F}]/u', // Alphabetic Presentation Forms
-            '/[\x{FB50}-\x{FDFF}]/u', // Arabic Presentation Forms-A
-            '/[\x{FE00}-\x{FE0F}]/u', // Variation Selectors
-            '/[\x{FE10}-\x{FE1F}]/u', // Vertical Forms
-            '/[\x{FE20}-\x{FE2F}]/u', // Combining Half Marks
-            '/[\x{FE30}-\x{FE4F}]/u', // CJK Compatibility Forms
-            '/[\x{FE50}-\x{FE6F}]/u', // Small Form Variants
-            '/[\x{FE70}-\x{FEFF}]/u', // Arabic Presentation Forms-B
-            '/[\x{FF00}-\x{FFEF}]/u', // Halfwidth and Fullwidth Forms
-            '/[\x{FFF0}-\x{FFFF}]/u', // Specials
-        ];
-
-        foreach ($otherScripts as $pattern) {
-            if (preg_match($pattern, $text)) {
-                $detectedAlphabets[] = 'other';
-                $hasRecognizedAlphabet = true;
-                break; // Only need to detect 'other' once
-            }
-        }
-
-        return $detectedAlphabets;
-    }
-
-    /**
-     * Check if the request contains forbidden words or phrases
-     * 
-     * @param array $requestData The request data to check
-     * @return array Array with 'forbidden_detected' => bool and 'detected_words' => array
+     * Check forbidden words using LanguageDetectionService
      */
     public function checkForbiddenWords(array $requestData): array
     {
-        $forbiddenWords = config('p-captcha.forbidden_words', []);
-        $detectedWords = $this->detectForbiddenWordsInData($requestData, $forbiddenWords);
-        $forbiddenDetected = !empty($detectedWords);
-
-        // Debug logging (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Forbidden words check result', [
-                'detected_words' => $detectedWords,
-                'forbidden_detected' => $forbiddenDetected,
-                'total_forbidden_words' => count($forbiddenWords)
-            ]);
-        }
-
-        return [
-            'forbidden_detected' => $forbiddenDetected,
-            'detected_words' => $detectedWords
-        ];
-    }
-
-    /**
-     * Detect forbidden words present in the given data
-     * 
-     * @param array $data The data to analyze
-     * @param array $forbiddenWords List of forbidden words/phrases
-     * @return array Array of detected forbidden words
-     */
-    protected function detectForbiddenWordsInData(array $data, array $forbiddenWords): array
-    {
-        $detectedWords = [];
-        $textFields = $this->extractTextFields($data);
-
-        foreach ($textFields as $text) {
-            $foundWords = $this->detectForbiddenWordsInText($text, $forbiddenWords);
-            $detectedWords = array_merge($detectedWords, $foundWords);
-        }
-
-        return array_unique($detectedWords);
-    }
-
-    /**
-     * Detect forbidden words present in a text string
-     * 
-     * @param string $text The text to analyze
-     * @param array $forbiddenWords List of forbidden words/phrases
-     * @return array Array of detected forbidden words
-     */
-    protected function detectForbiddenWordsInText(string $text, array $forbiddenWords): array
-    {
-        $detectedWords = [];
-        $textLower = mb_strtolower($text, 'UTF-8');
-
-        foreach ($forbiddenWords as $forbiddenWord) {
-            $forbiddenWordLower = mb_strtolower($forbiddenWord, 'UTF-8');
-            
-            // Check if the forbidden word/phrase exists in the text
-            if (mb_strpos($textLower, $forbiddenWordLower) !== false) {
-                $detectedWords[] = $forbiddenWord;
-            }
-        }
-
-        return $detectedWords;
+        return $this->languageDetectionService->checkForbiddenWords($requestData);
     }
 }

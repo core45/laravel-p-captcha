@@ -596,3 +596,39 @@ If you discover a security vulnerability, please send an e-mail to [security@you
 ## Changelog
 
 Please see [CHANGELOG.md](CHANGELOG.md) for more information on what has changed recently.
+
+## Service Architecture
+
+The P-CAPTCHA package uses a modular service architecture for better maintainability and separation of concerns:
+
+### Core Services
+
+- **PCaptchaService**: Main service handling CAPTCHA generation, validation, and rendering
+- **LanguageDetectionService**: Dedicated service for alphabet and forbidden words detection
+
+### Service Responsibilities
+
+#### PCaptchaService
+- CAPTCHA challenge generation and validation
+- Challenge type selection and difficulty calculation
+- Frontend rendering and HTML generation
+- Session management and caching
+- Delegates language detection to `LanguageDetectionService`
+
+#### LanguageDetectionService
+- Alphabet detection in form submissions
+- Forbidden words/phrases detection
+- Text field extraction from nested data structures
+- Unicode-aware text analysis
+- Case-insensitive pattern matching
+
+### Dependency Injection
+
+The services are properly registered with Laravel's service container:
+
+```php
+// LanguageDetectionService is automatically injected into PCaptchaService
+$captchaService = app('p-captcha');
+```
+
+## Configuration

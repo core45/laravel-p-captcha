@@ -109,29 +109,27 @@ return [
     /**
      * Alphabet restrictions
      * 
-     * Control which alphabets are allowed in form submissions.
-     * When a forbidden alphabet is detected:
-     * - If 'forbidden_alphabet_deny' is true: CAPTCHA fails and blocks the data
-     * - If 'forbidden_alphabet_deny' is false: CAPTCHA is always shown to challenge the user
+     * Control which writing systems are allowed in form submissions.
+     * This is useful for filtering out spam from specific regions or languages.
      * 
-     * Top 10 most popular writing systems plus 'other' for unlisted scripts:
-     * 1. Latin (English, French, German, Spanish, etc.)
-     * 2. Chinese (Simplified/Traditional Chinese)
-     * 3. Arabic (Arabic, Persian, Urdu, etc.)
-     * 4. Devanagari (Hindi, Marathi, Nepali, etc.)
-     * 5. Cyrillic (Russian, Bulgarian, Serbian, etc.)
-     * 6. Thai (Thai language)
-     * 7. Korean (Korean Hangul)
-     * 8. Japanese (Hiragana, Katakana, Kanji)
-     * 9. Bengali (Bengali, Assamese)
-     * 10. Tamil (Tamil language)
-     * 11. Other (all unlisted writing systems)
+     * Supported alphabets:
+     * - latin: Latin alphabet (English, French, German, Spanish, etc.)
+     * - chinese: Chinese characters (Simplified/Traditional)
+     * - arabic: Arabic script (Arabic, Persian, Urdu, etc.)
+     * - hindi: Devanagari script (Hindi, Marathi, Nepali, etc.)
+     * - cyrillic: Cyrillic script (Russian, Bulgarian, Serbian, etc.)
+     * - thai: Thai script
+     * - korean: Korean Hangul
+     * - japanese: Japanese characters (Hiragana, Katakana, Kanji)
+     * - bengali: Bengali script
+     * - tamil: Tamil script
+     * - other: All other unlisted writing systems
      */
     'allowed_alphabet' => [
         'latin' => true,        // Latin script (English, French, German, Spanish, etc.)
         'chinese' => false,     // Chinese characters (Simplified/Traditional)
         'arabic' => false,      // Arabic script (Arabic, Persian, Urdu, etc.)
-        'devanagari' => false,  // Devanagari script (Hindi, Marathi, Nepali, etc.)
+        'hindi' => false,       // Devanagari script (Hindi, Marathi, Nepali, etc.)
         'cyrillic' => false,    // Cyrillic script (Russian, Bulgarian, Serbian, etc.)
         'thai' => false,        // Thai script
         'korean' => false,      // Korean Hangul

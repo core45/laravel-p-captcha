@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use Core45\LaravelPCaptcha\Services\PCaptchaService;
+use Core45\LaravelPCaptcha\Services\LanguageDetectionService;
 use Core45\LaravelPCaptcha\Middleware\ProtectWithPCaptcha;
 use Core45\LaravelPCaptcha\Console\InstallCommand;
 
@@ -16,9 +17,16 @@ class PCaptchaServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Register the main service
+        // Register the language detection service
+        $this->app->singleton(LanguageDetectionService::class, function ($app) {
+            return new LanguageDetectionService();
+        });
+
+        // Register the main service with dependency injection
         $this->app->singleton('p-captcha', function ($app) {
-            return new PCaptchaService();
+            return new PCaptchaService(
+                $app->make(LanguageDetectionService::class)
+            );
         });
 
         // Merge package configuration
