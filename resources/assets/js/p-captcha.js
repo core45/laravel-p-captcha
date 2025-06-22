@@ -21,6 +21,15 @@ class PCaptchaWidget {
     async init() {
         this.setupElements();
         await this.loadChallenge();
+
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+            console.log('P-CAPTCHA: Initializing widget', {
+                container_id: this.containerId,
+                force_visual_captcha: window.pCaptchaConfig?.force_visual_captcha || false,
+                auto_show_after_attempts: window.pCaptchaConfig?.auto_show_after_attempts || 3
+            });
+        }
     }
 
     setupElements() {
@@ -385,6 +394,44 @@ class PCaptchaWidget {
     isVerified() {
         return this.verified;
     }
+
+    /**
+     * Render the CAPTCHA widget
+     */
+    render() {
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+            console.log('P-CAPTCHA: Rendering widget', {
+                container_id: this.containerId,
+                widget_visible: true
+            });
+        }
+
+        this.containerEl.innerHTML = `
+            <div class="p-captcha-widget" id="${this.containerId}-widget">
+                <div class="p-captcha-header">
+                    <h3>Verification Required</h3>
+                    <p class="p-captcha-instructions">Please complete the challenge to continue</p>
+                </div>
+                <div class="p-captcha-content">
+                    <div class="p-captcha-challenge" id="${this.containerId}-challenge">
+                        <div class="p-captcha-loading">Loading challenge...</div>
+                    </div>
+                    <div class="p-captcha-controls">
+                        <button type="button" class="p-captcha-validate-btn" id="${this.containerId}-validate-btn" disabled>
+                            Validate
+                        </button>
+                        <button type="button" class="p-captcha-refresh-btn" id="${this.containerId}-refresh-btn">
+                            ↻ Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="p-captcha-status" id="${this.containerId}-status"></div>
+                <input type="hidden" name="p_captcha_id" id="${this.containerId}-challenge-id">
+                <input type="hidden" name="p_captcha_solution" id="${this.containerId}-solution">
+            </div>
+        `;
+    }
 }
 
 // Global PCaptcha object for easy access
@@ -429,6 +476,15 @@ window.PCaptcha = {
 // Auto-initialize any CAPTCHA containers on page load
 document.addEventListener('DOMContentLoaded', function() {
     const containers = document.querySelectorAll('.p-captcha-container[data-auto-load="true"]');
+    
+    // Debug logging (only when APP_DEBUG is enabled)
+    if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+        console.log('P-CAPTCHA: Auto-initializing containers', {
+            container_count: containers.length,
+            containers: Array.from(containers).map(c => c.id)
+        });
+    }
+    
     containers.forEach(container => {
         PCaptcha.init(container.id);
     });

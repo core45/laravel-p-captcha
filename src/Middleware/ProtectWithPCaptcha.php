@@ -38,6 +38,19 @@ class ProtectWithPCaptcha
         // Check if visual CAPTCHA validation is required
         $visualCaptchaRequired = $this->isVisualCaptchaRequired($request, $botDetected);
 
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Middleware decision', [
+                'bot_detected' => $botDetected,
+                'visual_captcha_required' => $visualCaptchaRequired,
+                'force_visual_captcha' => config('p-captcha.force_visual_captcha', false),
+                'has_hidden_data' => $this->hasHiddenCaptchaData($request),
+                'has_visual_data' => $this->hasVisualCaptchaData($request),
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
+        }
+
         if (!$visualCaptchaRequired && !$botDetected) {
             // Normal user with no suspicious behavior - allow through
             return $next($request);
@@ -83,23 +96,45 @@ class ProtectWithPCaptcha
     protected function detectBotBehavior(Request $request): bool
     {
         // Check honeypot field
-        if ($this->checkHoneypot($request)) {
+        $honeypotDetected = $this->checkHoneypot($request);
+        if ($honeypotDetected) {
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Bot detected - honeypot field filled');
+            }
             return true;
         }
 
         // Check timing (if hidden CAPTCHA data is present)
-        if ($this->hasHiddenCaptchaData($request) && $this->checkTiming($request)) {
+        $timingDetected = $this->hasHiddenCaptchaData($request) && $this->checkTiming($request);
+        if ($timingDetected) {
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Bot detected - timing violation');
+            }
             return true;
         }
 
         // Check if JavaScript was disabled (missing token)
-        if ($this->checkJavaScriptRequired($request)) {
+        $jsDisabled = $this->checkJavaScriptRequired($request);
+        if ($jsDisabled) {
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Bot detected - JavaScript disabled');
+            }
             return true;
         }
 
         // Check user agent patterns
-        if ($this->checkSuspiciousUserAgent($request)) {
+        $suspiciousUA = $this->checkSuspiciousUserAgent($request);
+        if ($suspiciousUA) {
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Bot detected - suspicious user agent', [
+                    'user_agent' => $request->userAgent()
+                ]);
+            }
             return true;
+        }
+
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: No bot behavior detected');
         }
 
         return false;
@@ -186,11 +221,18 @@ class ProtectWithPCaptcha
     protected function isVisualCaptchaRequired(Request $request, bool $botDetected): bool
     {
         // Check if visual CAPTCHA is forced in config
-        if (config('p-captcha.force_visual_captcha', false)) {
+        $forceVisual = config('p-captcha.force_visual_captcha', false);
+        if ($forceVisual) {
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Visual CAPTCHA required - forced in config');
+            }
             return true;
         }
 
         if ($botDetected) {
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Visual CAPTCHA required - bot detected');
+            }
             return true;
         }
 
@@ -198,7 +240,18 @@ class ProtectWithPCaptcha
         $attemptCount = Cache::get("form_attempts:{$sessionId}", 0);
         $threshold = config('p-captcha.ui.auto_show_after_attempts', 3); // Increased since we have hidden validation
 
-        return $attemptCount >= $threshold;
+        $requiredByAttempts = $attemptCount >= $threshold;
+        
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Visual CAPTCHA requirement check', [
+                'attempt_count' => $attemptCount,
+                'threshold' => $threshold,
+                'required_by_attempts' => $requiredByAttempts,
+                'session_id' => $sessionId
+            ]);
+        }
+
+        return $requiredByAttempts;
     }
 
     /**
