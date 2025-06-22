@@ -37,26 +37,6 @@ return [
     ],
 
     /**
-     * Sequence completion challenge settings
-     */
-    'sequence_complete' => [
-        'type' => 'arithmetic',  // 'arithmetic' or 'geometric'
-        'start' => 1,            // Starting number
-        'step' => 2,             // Step size for arithmetic sequences
-        'ratio' => 2,            // Ratio for geometric sequences
-        'length' => 4,           // Number of numbers in the sequence
-    ],
-
-    /**
-     * Beam alignment challenge settings
-     */
-    'beam_alignment' => [
-        'tolerance' => 20,       // Pixel tolerance for beam alignment
-        'grid_size' => 300,      // Size of the alignment grid
-        'beam_size' => 40,       // Size of the beam elements
-    ],
-
-    /**
      * Session and caching settings
      */
     'cache' => [
@@ -124,58 +104,6 @@ return [
         'require_csrf' => true,             // Require CSRF token
         'log_attempts' => true,             // Log all attempts for monitoring
         'block_suspicious_ips' => false,    // Block IPs with too many failures
-    ],
-
-    /**
-     * Alphabet restrictions
-     * 
-     * Control which writing systems are allowed in form submissions.
-     * This is useful for filtering out spam from specific regions or languages.
-     * 
-     * Supported alphabets:
-     * - latin: Latin alphabet (English, French, German, Spanish, etc.)
-     * - chinese: Chinese characters (Simplified/Traditional)
-     * - arabic: Arabic script (Arabic, Persian, Urdu, etc.)
-     * - hindi: Devanagari script (Hindi, Marathi, Nepali, etc.)
-     * - cyrillic: Cyrillic script (Russian, Bulgarian, Serbian, etc.)
-     * - thai: Thai script
-     * - korean: Korean Hangul
-     * - japanese: Japanese characters (Hiragana, Katakana, Kanji)
-     * - bengali: Bengali script
-     * - tamil: Tamil script
-     * - other: All other unlisted writing systems
-     */
-    'allowed_alphabet' => [
-        'latin' => true,        // Latin script (English, French, German, Spanish, etc.)
-        'chinese' => false,     // Chinese characters (Simplified/Traditional)
-        'arabic' => false,      // Arabic script (Arabic, Persian, Urdu, etc.)
-        'hindi' => false,       // Devanagari script (Hindi, Marathi, Nepali, etc.)
-        'cyrillic' => false,    // Cyrillic script (Russian, Bulgarian, Serbian, etc.)
-        'thai' => false,        // Thai script
-        'korean' => false,      // Korean Hangul
-        'japanese' => false,    // Japanese characters (Hiragana, Katakana, Kanji)
-        'bengali' => false,     // Bengali script
-        'tamil' => false,       // Tamil script
-        'other' => false,       // All other unlisted writing systems
-    ],
-    'forbidden_alphabet_deny' => true,  // Whether to deny requests with forbidden alphabets
-
-    /**
-     * Forbidden words and phrases
-     * 
-     * Words or sentences that, when detected in form submissions, automatically
-     * trigger the user to be treated as a spam bot and always challenged with CAPTCHA.
-     * 
-     * Examples of common spam patterns:
-     * - Names of known spammers
-     * - Common spam phrases
-     * - Inappropriate language
-     * - Marketing spam terms
-     */
-    'forbidden_words' => [
-        'eric jones',
-        'shit',
-        // Add more forbidden words/phrases here
     ],
 
     /**

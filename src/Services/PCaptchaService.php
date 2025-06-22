@@ -8,59 +8,64 @@ use Illuminate\Support\Str;
 
 class PCaptchaService
 {
-    protected LanguageDetectionService $languageDetectionService;
-
-    public function __construct(LanguageDetectionService $languageDetectionService)
-    {
-        $this->languageDetectionService = $languageDetectionService;
-    }
-
     /**
      * Generate a new CAPTCHA challenge
      */
     public function generateChallenge(): array
     {
-        $sessionId = session()->getId();
-        $challengeId = $this->generateChallengeId();
+        $sessionId = Session::getId();
+        $challengeId = Str::random(32);
+
+        // Determine difficulty and type based on user history
         $difficulty = $this->calculateDifficulty($sessionId);
         $challengeType = $this->chooseChallengeType($sessionId);
 
-        $challengeData = $this->generateChallengeData($challengeType);
-        $solution = $this->generateSolution($challengeType, $challengeData);
-
+        // Create base challenge structure
         $challenge = [
             'id' => $challengeId,
             'type' => $challengeType,
             'difficulty' => $difficulty,
-            'challenge_data' => $challengeData,
-            'solution' => $solution,
-            'session_id' => $sessionId,
-            'created_at' => now()->timestamp,
-            'expires_at' => now()->addMinutes(config('p-captcha.security.challenge_timeout', 10))->timestamp,
+            'created_at' => now()->toISOString(),
+            'session_id' => $sessionId
         ];
 
-        // Store challenge in cache
-        Cache::put(
-            $this->getCacheKey('challenge', $challengeId),
-            $challenge,
-            config('p-captcha.security.challenge_timeout', 10) * 60
-        );
+        // Generate specific challenge data
+        $challenge = array_merge($challenge, $this->generateChallengeData($challengeType));
+
+        // Store in cache
+        $ttl = config('p-captcha.cache.challenge_ttl', 600);
+        Cache::put($this->getCacheKey('challenge', $challengeId), $challenge, $ttl);
 
         return $challenge;
     }
 
     /**
-     * Generate challenge data based on type
+     * Generate challenge-specific data
      */
     protected function generateChallengeData(string $type): array
     {
+        // Get available challenge types to validate
+        $availableTypes = config('p-captcha.challenge_types', []);
+        $validTypes = [];
+        foreach ($availableTypes as $availableType) {
+            if (is_string($availableType) && !empty(trim($availableType))) {
+                $validTypes[] = trim($availableType);
+            }
+        }
+        
+        // If the requested type is not available, use the first available type
+        if (!in_array($type, $validTypes)) {
+            $type = !empty($validTypes) ? $validTypes[0] : 'beam_alignment';
+        }
+        
         switch ($type) {
             case 'beam_alignment':
                 return $this->generateBeamAlignment();
             case 'sequence_complete':
                 return $this->generateSequenceComplete();
             default:
-                return $this->generateBeamAlignment(); // Default fallback
+                // Fallback to beam alignment if type is not supported
+                return $this->generateBeamAlignment();
         }
     }
 
@@ -69,25 +74,32 @@ class PCaptchaService
      */
     protected function generateBeamAlignment(): array
     {
-        $config = config('p-captcha.beam_alignment', []);
-        $tolerance = $config['tolerance'] ?? 20;
-        $gridSize = $config['grid_size'] ?? 300;
-        $beamSize = $config['beam_size'] ?? 40;
+        $config = config('p-captcha.ui.beam_alignment', []);
+        $width = $config['canvas_width'] ?? 400;
+        $height = $config['canvas_height'] ?? 300;
+        $tolerance = $config['tolerance'] ?? 15;
 
-        // Generate random positions for source and target
-        $sourceX = rand($beamSize, $gridSize - $beamSize);
-        $sourceY = rand($beamSize, $gridSize - $beamSize);
-        $targetX = rand($beamSize, $gridSize - $beamSize);
-        $targetY = rand($beamSize, $gridSize - $beamSize);
+        $sourceX = rand(50, 150);
+        $sourceY = rand(100, $height - 100);
+        $targetX = rand($width - 150, $width - 50);
+        $targetY = rand(100, $height - 100);
+
+        $correctOffsetX = $targetX - $sourceX;
+        $correctOffsetY = $targetY - $sourceY;
 
         return [
-            'grid_size' => $gridSize,
-            'beam_size' => $beamSize,
-            'tolerance' => $tolerance,
-            'source_x' => $sourceX,
-            'source_y' => $sourceY,
-            'target_x' => $targetX,
-            'target_y' => $targetY,
+            'challenge_data' => [
+                'source' => ['x' => $sourceX, 'y' => $sourceY],
+                'target' => ['x' => $targetX, 'y' => $targetY],
+                'tolerance' => $tolerance,
+                'canvas_width' => $width,
+                'canvas_height' => $height
+            ],
+            'solution' => [
+                'offset_x' => $correctOffsetX,
+                'offset_y' => $correctOffsetY
+            ],
+            'instructions' => 'Align the beam source with the target by dragging the source to enable particle collision'
         ];
     }
 
@@ -96,55 +108,95 @@ class PCaptchaService
      */
     protected function generateSequenceComplete(): array
     {
-        $config = config('p-captcha.sequence_complete', []);
+        $sequences = [
+            // Simple arithmetic sequences (easy)
+            ['type' => 'arithmetic', 'start' => 1, 'step' => 2, 'length' => 4],  // 1, 3, 5, 7
+            ['type' => 'arithmetic', 'start' => 2, 'step' => 3, 'length' => 4],  // 2, 5, 8, 11
+            ['type' => 'arithmetic', 'start' => 5, 'step' => 5, 'length' => 4],  // 5, 10, 15, 20
+            ['type' => 'arithmetic', 'start' => 10, 'step' => 10, 'length' => 4], // 10, 20, 30, 40
+            
+            // Medium arithmetic sequences
+            ['type' => 'arithmetic', 'start' => 1, 'step' => 4, 'length' => 4],  // 1, 5, 9, 13
+            ['type' => 'arithmetic', 'start' => 3, 'step' => 7, 'length' => 4],  // 3, 10, 17, 24
+            
+            // Simple geometric sequences
+            ['type' => 'geometric', 'start' => 2, 'ratio' => 2, 'length' => 4],  // 2, 4, 8, 16
+            ['type' => 'geometric', 'start' => 3, 'ratio' => 2, 'length' => 4],  // 3, 6, 12, 24
+            ['type' => 'geometric', 'start' => 1, 'ratio' => 3, 'length' => 4],  // 1, 3, 9, 27
+        ];
+
+        $seq = $sequences[array_rand($sequences)];
+        $fullSequence = $this->generateSequence($seq);
         
-        $sequence = $this->generateSequence($config);
-        $instruction = $this->generateSequenceInstruction($config, $sequence);
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Sequence generation details', [
+                'sequence_config' => $seq,
+                'full_sequence_before_pop' => $fullSequence,
+                'sequence_length' => count($fullSequence)
+            ]);
+        }
         
-        // Remove the last number to create the challenge
-        $challengeSequence = array_slice($sequence, 0, -1);
-        $correctAnswer = end($sequence);
+        $correctAnswer = array_pop($fullSequence);
+        $sequence = $fullSequence; // This is now the sequence without the answer
+
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Sequence after pop', [
+                'correct_answer' => $correctAnswer,
+                'sequence_after_pop' => $sequence,
+                'sequence_length_after_pop' => count($sequence)
+            ]);
+        }
+
+        // Generate wrong options (make them more realistic)
+        $wrongOptions = [
+            $correctAnswer + rand(1, 3),
+            $correctAnswer - rand(1, 3),
+            $correctAnswer + rand(5, 10),
+            $correctAnswer - rand(5, 10)
+        ];
+        $choices = array_merge([$correctAnswer], array_slice($wrongOptions, 0, 3));
+        shuffle($choices);
+
+        // Generate helpful instruction based on sequence type
+        $instruction = $this->generateSequenceInstruction($seq, $sequence);
 
         return [
-            'sequence' => $challengeSequence,
-            'instruction' => $instruction,
-            'correct_answer' => $correctAnswer,
-            'sequence_type' => $config['type'] ?? 'arithmetic',
+            'challenge_data' => [
+                'sequence' => $sequence,
+                'choices' => $choices
+            ],
+            'solution' => $correctAnswer,
+            'instructions' => $instruction
         ];
     }
 
     /**
-     * Generate solution for challenge
-     */
-    protected function generateSolution(string $type, array $challengeData): array
-    {
-        switch ($type) {
-            case 'beam_alignment':
-                return [
-                    'offset_x' => $challengeData['target_x'] - $challengeData['source_x'],
-                    'offset_y' => $challengeData['target_y'] - $challengeData['source_y'],
-                ];
-            case 'sequence_complete':
-                return [
-                    'answer' => $challengeData['correct_answer']
-                ];
-            default:
-                return [];
-        }
-    }
-
-    /**
-     * Generate instruction for sequence completion
+     * Generate helpful instruction for sequence challenge
      */
     protected function generateSequenceInstruction(array $config, array $sequence): string
     {
-        switch ($config['type'] ?? 'arithmetic') {
+        switch ($config['type']) {
             case 'arithmetic':
-                $step = $config['step'] ?? 1;
+                $step = $config['step'];
                 $lastNumber = end($sequence);
+                $nextNumber = $lastNumber + $step;
                 
                 if ($step == 1) {
                     return "Add 1 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 2) {
+                    return "Add 2 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 3) {
+                    return "Add 3 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 4) {
+                    return "Add 4 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 5) {
+                    return "Add 5 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 7) {
+                    return "Add 7 to the last number ({$lastNumber}) to get the next number.";
+                } elseif ($step == 10) {
+                    return "Add 10 to the last number ({$lastNumber}) to get the next number.";
                 } elseif ($step > 0) {
                     return "Add {$step} to the last number ({$lastNumber}) to get the next number.";
                 } else {
@@ -258,7 +310,7 @@ class PCaptchaService
      */
     protected function validateSequenceComplete(array $challenge, array $solution): bool
     {
-        $correctAnswer = $challenge['solution']['answer'] ?? null;
+        $correctAnswer = $challenge['solution'] ?? null;
         $userAnswer = $solution['answer'] ?? null;
 
         // Debug logging (only when APP_DEBUG is enabled)
@@ -345,17 +397,32 @@ class PCaptchaService
         $availableTypes = [];
         foreach ($allChallengeTypes as $type) {
             if (is_string($type) && !empty(trim($type))) {
-                $availableTypes[] = $type;
+                $availableTypes[] = trim($type);
             }
         }
-
-        // If no valid types found, use default
+        
+        // If no valid types are available, fallback to beam_alignment
         if (empty($availableTypes)) {
-            $availableTypes = ['beam_alignment', 'sequence_complete'];
+            return 'beam_alignment';
+        }
+        
+        // Remove proof_of_work from visual types if it exists
+        $visualTypes = array_diff($availableTypes, ['proof_of_work']);
+        
+        // If no visual types available, use the first available type
+        if (empty($visualTypes)) {
+            return $availableTypes[0];
         }
 
-        // Randomly select a challenge type
-        return $availableTypes[array_rand($availableTypes)];
+        // Normal distribution
+        $visualPercentage = config('p-captcha.visual_challenge_percentage', 70);
+
+        if (rand(1, 100) <= $visualPercentage) {
+            return $visualTypes[array_rand($visualTypes)];
+        }
+
+        // If proof_of_work is available, use it, otherwise fallback to visual
+        return in_array('proof_of_work', $availableTypes) ? 'proof_of_work' : $visualTypes[array_rand($visualTypes)];
     }
 
     /**
@@ -363,25 +430,20 @@ class PCaptchaService
      */
     protected function trackValidationResult(string $sessionId, bool $isValid, string $challengeType): void
     {
-        if (!$isValid) {
-            // Increment failure counter
-            $failures = Cache::get($this->getCacheKey('failures', $sessionId), 0);
-            Cache::put($this->getCacheKey('failures', $sessionId), $failures + 1, 3600); // 1 hour
+        $ttl = config('p-captcha.cache.failure_tracking_ttl', 3600);
 
-            // Track visual failures separately
-            if (in_array($challengeType, ['beam_alignment', 'sequence_complete'])) {
-                $visualFailures = Cache::get($this->getCacheKey('visual_failures', $sessionId), 0);
-                Cache::put($this->getCacheKey('visual_failures', $sessionId), $visualFailures + 1, 3600);
-            }
+        if (!$isValid) {
+            // Increment total failures
+            $failures = Cache::get($this->getCacheKey('failures', $sessionId), 0);
+            Cache::put($this->getCacheKey('failures', $sessionId), $failures + 1, $ttl);
         } else {
-            // Reset failure counters on success
+            // Reset counters on success
             Cache::forget($this->getCacheKey('failures', $sessionId));
-            Cache::forget($this->getCacheKey('visual_failures', $sessionId));
         }
     }
 
     /**
-     * Get challenge data for frontend
+     * Get frontend-safe challenge data (removes solutions)
      */
     public function getChallengeForFrontend(string $challengeId): ?array
     {
@@ -391,131 +453,82 @@ class PCaptchaService
             return null;
         }
 
-        // Return only the data needed for frontend (exclude solution)
-        return [
+        // Create safe version for frontend
+        $frontendChallenge = [
             'id' => $challenge['id'],
             'type' => $challenge['type'],
-            'difficulty' => $challenge['difficulty'],
-            'challenge_data' => $challenge['challenge_data'],
-            'expires_at' => $challenge['expires_at'],
+            'instructions' => $challenge['instructions'],
+            'challenge_data' => $challenge['challenge_data']
         ];
+
+        // Remove sensitive data
+        if (isset($challenge['solution'])) {
+            unset($frontendChallenge['solution']);
+        }
+
+        return $frontendChallenge;
     }
 
     /**
-     * Render CAPTCHA HTML
+     * Render CAPTCHA HTML for Blade directive
      */
     public function renderCaptcha(string $options = ''): string
     {
-        $parsedOptions = $this->parseOptions($options);
-        $challenge = $this->generateChallenge();
+        $optionsArray = $this->parseOptions($options);
 
-        $html = '<div class="p-captcha-container" data-challenge-id="' . $challenge['id'] . '">';
-        $html .= '<input type="hidden" name="_captcha_token" value="' . $challenge['id'] . '">';
-        
-        // Add challenge-specific HTML
-        switch ($challenge['type']) {
-            case 'beam_alignment':
-                $html .= $this->renderBeamAlignmentChallenge($challenge);
-                break;
-            case 'sequence_complete':
-                $html .= $this->renderSequenceChallenge($challenge);
-                break;
-            default:
-                $html .= '<p>Challenge type not supported</p>';
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Options being passed to view', $optionsArray);
         }
 
-        $html .= '</div>';
-
-        return $html;
+        return view('p-captcha::captcha', [
+            'options' => $optionsArray,
+            'config' => config('p-captcha')
+        ])->render();
     }
 
     /**
-     * Parse options string
+     * Parse options for Blade directive
      */
     protected function parseOptions(string $options): array
     {
-        $parsed = [];
+        // All options are now controlled via config file
+        // Parameters passed to @pcaptcha directive are ignored
         
-        if (empty($options)) {
-            return $parsed;
+        $theme = config('p-captcha.ui.theme', 'dark');
+        $forceVisualCaptcha = config('p-captcha.force_visual_captcha', false);
+        
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Parsing options from config', [
+                'theme' => $theme,
+                'force_visual_captcha' => $forceVisualCaptcha,
+                'force_visual_captcha_type' => gettype($forceVisualCaptcha),
+                'force_visual_captcha_bool' => (bool) $forceVisualCaptcha,
+                'config_path' => 'p-captcha'
+            ]);
         }
-
-        $pairs = explode(' ', $options);
-        foreach ($pairs as $pair) {
-            if (strpos($pair, '=') !== false) {
-                [$key, $value] = explode('=', $pair, 2);
-                $parsed[$key] = $value;
-            }
+        
+        $result = [
+            'id' => 'p-captcha-' . Str::random(8),
+            'theme' => $theme,
+            'auto_load' => (bool) $forceVisualCaptcha // Explicit boolean conversion
+        ];
+        
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Final options array', $result);
         }
-
-        return $parsed;
-    }
-
-    /**
-     * Render beam alignment challenge HTML
-     */
-    protected function renderBeamAlignmentChallenge(array $challenge): string
-    {
-        $data = $challenge['challenge_data'];
         
-        $html = '<div class="beam-alignment-challenge">';
-        $html .= '<p>Drag the beam source to align with the target</p>';
-        $html .= '<div class="beam-grid" style="width: ' . $data['grid_size'] . 'px; height: ' . $data['grid_size'] . 'px;">';
-        $html .= '<div class="beam-source" style="left: ' . $data['source_x'] . 'px; top: ' . $data['source_y'] . 'px;"></div>';
-        $html .= '<div class="beam-target" style="left: ' . $data['target_x'] . 'px; top: ' . $data['target_y'] . 'px;"></div>';
-        $html .= '</div>';
-        $html .= '<input type="hidden" name="p_captcha_solution" value="">';
-        $html .= '</div>';
-
-        return $html;
+        return $result;
     }
 
     /**
-     * Render sequence challenge HTML
-     */
-    protected function renderSequenceChallenge(array $challenge): string
-    {
-        $data = $challenge['challenge_data'];
-        
-        $html = '<div class="sequence-challenge">';
-        $html .= '<p>' . htmlspecialchars($data['instruction']) . '</p>';
-        $html .= '<div class="sequence-display">';
-        $html .= implode(' → ', $data['sequence']) . ' → <input type="number" name="p_captcha_solution" required>';
-        $html .= '</div>';
-        $html .= '</div>';
-
-        return $html;
-    }
-
-    /**
-     * Generate cache key
+     * Generate cache key with prefix
      */
     protected function getCacheKey(string $type, string $identifier): string
     {
-        return 'p_captcha_' . $type . '_' . $identifier;
-    }
-
-    /**
-     * Generate unique challenge ID
-     */
-    protected function generateChallengeId(): string
-    {
-        return 'challenge_' . uniqid() . '_' . bin2hex(random_bytes(8));
-    }
-
-    /**
-     * Check alphabet restrictions using LanguageDetectionService
-     */
-    public function checkAlphabetRestrictions(array $requestData): array
-    {
-        return $this->languageDetectionService->checkAlphabetRestrictions($requestData);
-    }
-
-    /**
-     * Check forbidden words using LanguageDetectionService
-     */
-    public function checkForbiddenWords(array $requestData): array
-    {
-        return $this->languageDetectionService->checkForbiddenWords($requestData);
+        $prefix = config('p-captcha.cache.prefix', 'p_captcha:');
+        return $prefix . $type . ':' . $identifier;
     }
 }

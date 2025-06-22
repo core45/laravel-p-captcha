@@ -35,12 +35,6 @@ class ProtectWithPCaptcha
         // First check for bot behavior using hidden validation
         $botDetected = $this->detectBotBehavior($request);
 
-        // Check for forbidden alphabets in the request data
-        $alphabetCheck = $this->checkAlphabetRestrictions($request);
-
-        // Check for forbidden words in the request data
-        $forbiddenWordsCheck = $this->checkForbiddenWords($request);
-
         // Check if visual CAPTCHA validation is required
         $visualCaptchaRequired = $this->isVisualCaptchaRequired($request, $botDetected);
 
@@ -48,8 +42,6 @@ class ProtectWithPCaptcha
         if (config('app.debug', false)) {
             \Log::info('P-CAPTCHA: Middleware decision', [
                 'bot_detected' => $botDetected,
-                'alphabet_check' => $alphabetCheck,
-                'forbidden_words_check' => $forbiddenWordsCheck,
                 'visual_captcha_required' => $visualCaptchaRequired,
                 'force_visual_captcha' => config('p-captcha.force_visual_captcha', false),
                 'has_hidden_data' => $this->hasHiddenCaptchaData($request),
@@ -57,47 +49,6 @@ class ProtectWithPCaptcha
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent()
             ]);
-        }
-
-        // Handle forbidden alphabet detection
-        if ($alphabetCheck['forbidden_detected']) {
-            $forbiddenAlphabetDeny = config('p-captcha.forbidden_alphabet_deny', true);
-            
-            if ($forbiddenAlphabetDeny) {
-                // Deny the request immediately
-                return $this->handleAlphabetViolation($request, $alphabetCheck['detected_alphabets']);
-            } else {
-                // Force visual CAPTCHA for all requests with forbidden alphabets
-                $visualCaptchaRequired = true;
-                // Set session flag to indicate CAPTCHA is required
-                session(['p_captcha_required' => true]);
-                
-                // Debug logging (only when APP_DEBUG is enabled)
-                if (config('app.debug', false)) {
-                    \Log::warning('P-CAPTCHA: Forbidden alphabet detected - forcing CAPTCHA', [
-                        'detected_alphabets' => $alphabetCheck['detected_alphabets'],
-                        'ip' => $request->ip(),
-                        'user_agent' => $request->userAgent()
-                    ]);
-                }
-            }
-        }
-
-        // Handle forbidden words detection
-        if ($forbiddenWordsCheck['forbidden_detected']) {
-            // Always force visual CAPTCHA for users with forbidden words
-            $visualCaptchaRequired = true;
-            // Set session flag to indicate CAPTCHA is required
-            session(['p_captcha_required' => true]);
-            
-            // Debug logging (only when APP_DEBUG is enabled)
-            if (config('app.debug', false)) {
-                \Log::warning('P-CAPTCHA: Forbidden words detected - forcing CAPTCHA', [
-                    'detected_words' => $forbiddenWordsCheck['detected_words'],
-                    'ip' => $request->ip(),
-                    'user_agent' => $request->userAgent()
-                ]);
-            }
         }
 
         // If no CAPTCHA is required and no bot detected, allow through
@@ -124,8 +75,7 @@ class ProtectWithPCaptcha
             $isValid = $this->validateVisualCaptcha($request);
 
             if ($isValid) {
-                // CAPTCHA passed, clear session flag and continue with request
-                session()->forget('p_captcha_required');
+                // CAPTCHA passed, continue with request
                 return $next($request);
             } else {
                 // CAPTCHA failed
@@ -272,7 +222,7 @@ class ProtectWithPCaptcha
     }
 
     /**
-     * Check if visual CAPTCHA validation is required
+     * Check if visual CAPTCHA is required
      */
     protected function isVisualCaptchaRequired(Request $request, bool $botDetected): bool
     {
@@ -281,15 +231,6 @@ class ProtectWithPCaptcha
         if ($forceVisual) {
             if (config('app.debug', false)) {
                 \Log::info('P-CAPTCHA: Visual CAPTCHA required - forced in config');
-            }
-            return true;
-        }
-
-        // Check if CAPTCHA is required by session flag (set by alphabet/word detection)
-        $captchaRequiredBySession = session('p_captcha_required', false);
-        if ($captchaRequiredBySession) {
-            if (config('app.debug', false)) {
-                \Log::info('P-CAPTCHA: Visual CAPTCHA required - session flag set');
             }
             return true;
         }
@@ -532,67 +473,5 @@ class ProtectWithPCaptcha
     {
         $sessionId = Session::getId();
         Cache::forget("form_attempts:{$sessionId}");
-    }
-
-    /**
-     * Check for forbidden alphabets in the request data
-     * 
-     * @param Request $request
-     * @return array Array with 'forbidden_detected' => bool and 'detected_alphabets' => array
-     */
-    protected function checkAlphabetRestrictions(Request $request): array
-    {
-        $requestData = $request->all();
-        return $this->captchaService->checkAlphabetRestrictions($requestData);
-    }
-
-    /**
-     * Handle alphabet violation (forbidden alphabet detected)
-     * 
-     * @param Request $request
-     * @param array $detectedAlphabets
-     * @return mixed
-     */
-    protected function handleAlphabetViolation(Request $request, array $detectedAlphabets)
-    {
-        $alphabetNames = implode(', ', $detectedAlphabets);
-        $message = "Form submission contains forbidden characters.";
-
-        // Debug logging (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::warning('P-CAPTCHA: Alphabet violation detected', [
-                'detected_alphabets' => $detectedAlphabets,
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent()
-            ]);
-        }
-
-        if ($request->expectsJson()) {
-            return new JsonResponse([
-                'success' => false,
-                'message' => $message,
-                'alphabet_violation' => true,
-                'forbidden_alphabets' => $detectedAlphabets,
-                'errors' => [
-                    'alphabet' => [$message]
-                ]
-            ], 422);
-        }
-
-        return back()
-            ->withErrors(['alphabet' => $message])
-            ->withInput($request->except(['p_captcha_id', 'p_captcha_solution', '_captcha_token', '_captcha_field']));
-    }
-
-    /**
-     * Check for forbidden words in the request data
-     * 
-     * @param Request $request
-     * @return array Array with 'forbidden_detected' => bool and 'detected_words' => array
-     */
-    protected function checkForbiddenWords(Request $request): array
-    {
-        $requestData = $request->all();
-        return $this->captchaService->checkForbiddenWords($requestData);
     }
 }

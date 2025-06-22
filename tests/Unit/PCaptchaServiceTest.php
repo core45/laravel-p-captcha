@@ -66,10 +66,9 @@ class PCaptchaServiceTest extends TestCase
 
         $this->assertEquals('sequence_complete', $challenge['type']);
         $this->assertArrayHasKey('sequence', $challenge['challenge_data']);
-        $this->assertArrayHasKey('instruction', $challenge['challenge_data']);
-        $this->assertArrayHasKey('solution', $challenge);
-        $this->assertArrayHasKey('answer', $challenge['solution']);
-        $this->assertIsInt($challenge['solution']['answer']);
+        $this->assertArrayHasKey('choices', $challenge['challenge_data']);
+        $this->assertIsInt($challenge['solution']);
+        $this->assertContains($challenge['solution'], $challenge['challenge_data']['choices']);
     }
 
     /** @test */
@@ -100,7 +99,7 @@ class PCaptchaServiceTest extends TestCase
         $challenge = $this->service->generateChallenge();
 
         // Test correct solution
-        $correctSolution = ['answer' => $challenge['solution']['answer']];
+        $correctSolution = ['answer' => $challenge['solution']];
         $isValid = $this->service->validateSolution($challenge['id'], $correctSolution);
         $this->assertTrue($isValid);
 
@@ -193,7 +192,7 @@ class PCaptchaServiceTest extends TestCase
         // Generate and solve a challenge successfully
         config(['p-captcha.challenge_types' => ['sequence_complete']]);
         $challenge = $this->service->generateChallenge();
-        $correctSolution = ['answer' => $challenge['solution']['answer']];
+        $correctSolution = ['answer' => $challenge['solution']];
         $this->service->validateSolution($challenge['id'], $correctSolution);
 
         // Verify counter is reset

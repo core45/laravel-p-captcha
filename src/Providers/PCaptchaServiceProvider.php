@@ -6,7 +6,6 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use Core45\LaravelPCaptcha\Services\PCaptchaService;
-use Core45\LaravelPCaptcha\Services\LanguageDetectionService;
 use Core45\LaravelPCaptcha\Middleware\ProtectWithPCaptcha;
 use Core45\LaravelPCaptcha\Console\InstallCommand;
 
@@ -17,16 +16,9 @@ class PCaptchaServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Register the language detection service
-        $this->app->singleton(LanguageDetectionService::class, function ($app) {
-            return new LanguageDetectionService();
-        });
-
-        // Register the main service with dependency injection
+        // Register the main service
         $this->app->singleton('p-captcha', function ($app) {
-            return new PCaptchaService(
-                $app->make(LanguageDetectionService::class)
-            );
+            return new PCaptchaService();
         });
 
         // Merge package configuration
@@ -99,16 +91,13 @@ class PCaptchaServiceProvider extends ServiceProvider
             // All options are now controlled via config file
             // Parameters are ignored for consistency
             return "<?php 
-                \$request = request();
-                \$session = session();
-                
-                // Check if CAPTCHA is required based on session data (set by middleware)
-                \$captchaRequired = \$session->get('p_captcha_required', false);
-                
-                // Only run bot detection on POST requests or when CAPTCHA is already required
-                \$botDetected = false;
-                if (\$request->isMethod('POST') || \$captchaRequired) {
+                // Log when @pcaptcha directive is processed
+                if (config('app.debug', false)) {
+                    \$request = request();
+                    
+                    // Run basic bot detection
                     \$userAgent = \$request->userAgent();
+                    \$botDetected = false;
                     
                     // Simple bot detection checks
                     if (empty(\$userAgent)) {
@@ -118,44 +107,45 @@ class PCaptchaServiceProvider extends ServiceProvider
                              stripos(\$userAgent, 'spider') !== false) {
                         \$botDetected = true;
                     }
-                }
-                
-                // Check if force_visual_captcha is enabled (only on POST requests)
-                \$forceVisualCaptcha = false;
-                if (\$request->isMethod('POST')) {
+                    
+                    // Check if force_visual_captcha is enabled
                     \$forceVisualCaptcha = config('p-captcha.force_visual_captcha', false);
-                }
-                
-                // Check for alphabet restrictions (if enabled)
-                \$alphabetRestrictionsEnabled = !empty(config('p-captcha.allowed_alphabet', []));
-                \$forbiddenAlphabetDeny = config('p-captcha.forbidden_alphabet_deny', true);
-                
-                // Check for forbidden words (if configured)
-                \$forbiddenWordsEnabled = !empty(config('p-captcha.forbidden_words', []));
-                
-                // Determine if CAPTCHA should be shown
-                \$shouldShowCaptcha = \$captchaRequired || \$botDetected || \$forceVisualCaptcha;
-                
-                // Debug logging (only when APP_DEBUG is enabled)
-                if (config('app.debug', false)) {
+                    \$captchaRequired = \$botDetected || \$forceVisualCaptcha;
+                    
                     \Log::info('P-CAPTCHA: @pcaptcha directive processed', [
                         'ip' => \$request->ip(),
-                        'user_agent' => \$request->userAgent(),
+                        'user_agent' => \$userAgent,
                         'bot_detected' => \$botDetected,
                         'force_visual_captcha' => \$forceVisualCaptcha,
-                        'captcha_required_session' => \$captchaRequired,
-                        'alphabet_restrictions_enabled' => \$alphabetRestrictionsEnabled,
-                        'forbidden_alphabet_deny' => \$forbiddenAlphabetDeny,
-                        'forbidden_words_enabled' => \$forbiddenWordsEnabled,
-                        'should_show_captcha' => \$shouldShowCaptcha,
+                        'captcha_required' => \$captchaRequired,
                         'method' => \$request->method(),
                         'url' => \$request->url()
                     ]);
-                }
-                
-                // Render CAPTCHA if required
-                if (\$shouldShowCaptcha) {
-                    echo app('p-captcha')->renderCaptcha('');
+                    
+                    // Only render CAPTCHA if required
+                    if (\$captchaRequired) {
+                        echo app('p-captcha')->renderCaptcha('');
+                    }
+                } else {
+                    // When debug is off, still run the logic but don't log
+                    \$request = request();
+                    \$userAgent = \$request->userAgent();
+                    \$botDetected = false;
+                    
+                    if (empty(\$userAgent)) {
+                        \$botDetected = true;
+                    } elseif (stripos(\$userAgent, 'bot') !== false || 
+                             stripos(\$userAgent, 'crawler') !== false ||
+                             stripos(\$userAgent, 'spider') !== false) {
+                        \$botDetected = true;
+                    }
+                    
+                    \$forceVisualCaptcha = config('p-captcha.force_visual_captcha', false);
+                    \$captchaRequired = \$botDetected || \$forceVisualCaptcha;
+                    
+                    if (\$captchaRequired) {
+                        echo app('p-captcha')->renderCaptcha('');
+                    }
                 }
             ?>";
         });
