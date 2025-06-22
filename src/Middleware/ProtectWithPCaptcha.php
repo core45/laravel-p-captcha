@@ -56,7 +56,7 @@ class ProtectWithPCaptcha
             }
         }
 
-        // Validate visual CAPTCHA if present
+        // Validate visual CAPTCHA if present (only once)
         if ($this->hasVisualCaptchaData($request)) {
             $isValid = $this->validateVisualCaptcha($request);
 

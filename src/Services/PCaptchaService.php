@@ -248,7 +248,7 @@ class PCaptchaService
     /**
      * Validate CAPTCHA solution
      */
-    public function validateSolution(string $challengeId, array $solution): bool
+    public function validateSolution(string $challengeId, array $solution, bool $consumeChallenge = true): bool
     {
         $challenge = Cache::get($this->getCacheKey('challenge', $challengeId));
 
@@ -261,8 +261,8 @@ class PCaptchaService
         // Track result for adaptive difficulty
         $this->trackValidationResult($challenge['session_id'], $isValid, $challenge['type']);
 
-        // Remove used challenge (single use)
-        if (config('p-captcha.security.single_use_challenges', true)) {
+        // Remove used challenge (single use) only if consumeChallenge is true
+        if ($consumeChallenge && config('p-captcha.security.single_use_challenges', true)) {
             Cache::forget($this->getCacheKey('challenge', $challengeId));
         }
 

@@ -121,8 +121,8 @@ class PCaptchaController extends Controller
                 ]);
             }
 
-            // Validate solution
-            $isValid = $this->captchaService->validateSolution($challengeId, $solution);
+            // Validate solution (don't consume challenge during AJAX validation)
+            $isValid = $this->captchaService->validateSolution($challengeId, $solution, false);
 
             // Log result
             if (config('p-captcha.security.log_attempts', true)) {
