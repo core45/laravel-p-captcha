@@ -69,9 +69,10 @@ class PCaptchaService
      */
     protected function generateBeamAlignment(): array
     {
-        $tolerance = config('p-captcha.beam_alignment.tolerance', 20);
-        $gridSize = config('p-captcha.beam_alignment.grid_size', 300);
-        $beamSize = config('p-captcha.beam_alignment.beam_size', 40);
+        $config = config('p-captcha.beam_alignment', []);
+        $tolerance = $config['tolerance'] ?? 20;
+        $gridSize = $config['grid_size'] ?? 300;
+        $beamSize = $config['beam_size'] ?? 40;
 
         // Generate random positions for source and target
         $sourceX = rand($beamSize, $gridSize - $beamSize);

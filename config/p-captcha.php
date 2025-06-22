@@ -37,6 +37,26 @@ return [
     ],
 
     /**
+     * Sequence completion challenge settings
+     */
+    'sequence_complete' => [
+        'type' => 'arithmetic',  // 'arithmetic' or 'geometric'
+        'start' => 1,            // Starting number
+        'step' => 2,             // Step size for arithmetic sequences
+        'ratio' => 2,            // Ratio for geometric sequences
+        'length' => 4,           // Number of numbers in the sequence
+    ],
+
+    /**
+     * Beam alignment challenge settings
+     */
+    'beam_alignment' => [
+        'tolerance' => 20,       // Pixel tolerance for beam alignment
+        'grid_size' => 300,      // Size of the alignment grid
+        'beam_size' => 40,       // Size of the beam elements
+    ],
+
+    /**
      * Session and caching settings
      */
     'cache' => [

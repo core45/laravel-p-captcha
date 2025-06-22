@@ -649,3 +649,47 @@ $captchaService = app('p-captcha');
 ```
 
 ## Configuration
+
+```
+## Challenge Configuration
+
+The package supports multiple challenge types with configurable settings:
+
+### Sequence Completion Challenge
+
+```php
+'sequence_complete' => [
+    'type' => 'arithmetic',  // 'arithmetic' or 'geometric'
+    'start' => 1,            // Starting number
+    'step' => 2,             // Step size for arithmetic sequences
+    'ratio' => 2,            // Ratio for geometric sequences
+    'length' => 4,           // Number of numbers in the sequence
+],
+```
+
+**Example sequences:**
+- Arithmetic: 1, 3, 5, 7 (add 2 each time)
+- Geometric: 2, 4, 8, 16 (multiply by 2 each time)
+
+### Beam Alignment Challenge
+
+```php
+'beam_alignment' => [
+    'tolerance' => 20,       // Pixel tolerance for beam alignment
+    'grid_size' => 300,      // Size of the alignment grid
+    'beam_size' => 40,       // Size of the beam elements
+],
+```
+
+### Challenge Type Selection
+
+```php
+'challenge_types' => [
+    'beam_alignment',    // Drag beam source to target
+    'sequence_complete', // Complete number sequences
+],
+```
+
+To disable a challenge type, simply remove or comment out the line from the array.
+
+## Alphabet Restrictions
