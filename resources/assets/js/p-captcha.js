@@ -62,6 +62,8 @@ class PCaptchaWidget {
 
     async loadChallenge() {
         try {
+            console.log('P-CAPTCHA: Starting to load challenge...');
+            
             // Debug logging (only when APP_DEBUG is enabled)
             if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
                 console.log('P-CAPTCHA: Loading challenge...');
@@ -75,7 +77,11 @@ class PCaptchaWidget {
                 }
             });
 
+            console.log('P-CAPTCHA: Response received, status:', response.status);
+
             const data = await response.json();
+
+            console.log('P-CAPTCHA: Response data:', data);
 
             // Debug logging (only when APP_DEBUG is enabled)
             if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
@@ -95,13 +101,18 @@ class PCaptchaWidget {
     }
 
     renderChallenge() {
+        console.log('P-CAPTCHA: renderChallenge called, currentChallenge:', this.currentChallenge);
+        
         if (!this.currentChallenge) {
+            console.log('P-CAPTCHA: No challenge to render');
             // Debug logging (only when APP_DEBUG is enabled)
             if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
                 console.log('P-CAPTCHA: No challenge to render');
             }
             return;
         }
+
+        console.log('P-CAPTCHA: Rendering challenge type:', this.currentChallenge.type);
 
         // Debug logging (only when APP_DEBUG is enabled)
         if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
@@ -122,12 +133,15 @@ class PCaptchaWidget {
         // Render based on challenge type
         switch (this.currentChallenge.type) {
             case 'beam_alignment':
+                console.log('P-CAPTCHA: Rendering beam alignment challenge');
                 this.renderBeamAlignment();
                 break;
             case 'sequence_complete':
+                console.log('P-CAPTCHA: Rendering sequence complete challenge');
                 this.renderSequenceComplete();
                 break;
             default:
+                console.error('P-CAPTCHA: Unknown challenge type:', this.currentChallenge.type);
                 this.showError('Unknown challenge type: ' + this.currentChallenge.type);
         }
     }
@@ -484,11 +498,31 @@ class PCaptchaWidget {
 window.PCaptcha = {
     instances: {},
 
-    init(containerId) {
-        if (!this.instances[containerId]) {
-            this.instances[containerId] = new PCaptchaWidget(containerId);
+    init(containerId, options = {}) {
+        console.log('P-CAPTCHA: Initializing with container ID:', containerId, 'options:', options);
+        
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error('P-CAPTCHA: Container not found:', containerId);
+            return;
         }
-        return this.instances[containerId];
+
+        // Parse options
+        const autoLoad = options.auto_load !== undefined ? options.auto_load : 
+                        container.dataset.autoLoad === 'true';
+        
+        console.log('P-CAPTCHA: Auto load setting:', autoLoad);
+
+        // Initialize container
+        this.instances[containerId] = new PCaptchaWidget(containerId);
+
+        // Auto-load challenge if enabled
+        if (autoLoad) {
+            console.log('P-CAPTCHA: Auto-loading challenge...');
+            this.instances[containerId].loadChallenge();
+        } else {
+            console.log('P-CAPTCHA: Auto-load disabled, challenge will be loaded when needed');
+        }
     },
 
     validate(containerId) {

@@ -16,6 +16,12 @@ return [
     'route_prefix' => 'p-captcha',
 
     /**
+     * Force visual CAPTCHA to always show (bypasses bot detection)
+     */
+    'force_visual_captcha' => false, // Set to true to always show visual challenges
+
+
+    /**
      * Available challenge types
      *
      * To disable a challenge type, simply remove or comment out the line.
@@ -51,11 +57,6 @@ return [
     ],
 
     /**
-     * Force visual CAPTCHA to always show (bypasses bot detection)
-     */
-    'force_visual_captcha' => false, // Set to true to always show visual challenges
-
-    /**
      * Rate limiting settings
      */
     'rate_limits' => [
@@ -85,7 +86,8 @@ return [
      * UI/UX settings
      */
     'ui' => [
-        'theme' => 'dark',           // 'dark' or 'light'
+        'theme' => 'light',           // 'dark' or 'light'
+        'auto_load' => true,          // Whether to auto-load CAPTCHA on page load
         'show_instructions' => true,
         'auto_show_after_attempts' => 3, // Show CAPTCHA after N failed attempts (increased due to hidden validation)
         'beam_alignment' => [

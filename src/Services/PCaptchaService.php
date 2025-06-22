@@ -487,28 +487,26 @@ class PCaptchaService
      */
     protected function parseOptions(string $options): array
     {
-        $defaults = [
+        // All options are now controlled via config file
+        // Parameters passed to @pcaptcha directive are ignored
+        
+        $theme = config('p-captcha.ui.theme', 'dark');
+        $autoLoad = config('p-captcha.ui.auto_load', false);
+        
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Parsing options from config', [
+                'theme' => $theme,
+                'auto_load' => $autoLoad,
+                'config_path' => 'p-captcha.ui'
+            ]);
+        }
+        
+        return [
             'id' => 'p-captcha-' . Str::random(8),
-            'theme' => config('p-captcha.ui.theme', 'dark'),
-            'auto_load' => false
+            'theme' => $theme,
+            'auto_load' => $autoLoad
         ];
-
-        if (empty($options)) {
-            return $defaults;
-        }
-
-        // Parse simple key=value pairs
-        $parsed = [];
-        $pairs = explode(',', $options);
-
-        foreach ($pairs as $pair) {
-            if (strpos($pair, '=') !== false) {
-                [$key, $value] = explode('=', trim($pair), 2);
-                $parsed[trim($key)] = trim($value, '\'"');
-            }
-        }
-
-        return array_merge($defaults, $parsed);
     }
 
     /**

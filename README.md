@@ -50,32 +50,26 @@ php artisan p-captcha:install --views
 php artisan p-captcha:install --force
 ```
 
-## Quick Start
+## Basic Usage
 
-### 1. Add CAPTCHA to Your Form
-
-Simply add the `@pcaptcha` directive to any Blade template:
+### 1. Add the CAPTCHA to your Blade views
 
 ```blade
-<form method="POST" action="{{ route('contact.store') }}">
+<form method="POST" action="/contact">
     @csrf
     
-    <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" name="email" id="email" required>
-    </div>
+    <!-- Your form fields -->
+    <input type="text" name="name" required>
+    <input type="email" name="email" required>
     
-    <div class="form-group">
-        <label for="message">Message</label>
-        <textarea name="message" id="message" required></textarea>
-    </div>
-    
-    {{-- Add P-CAPTCHA widget --}}
+    <!-- P-CAPTCHA Widget (no parameters needed) -->
     @pcaptcha
     
-    <button type="submit">Send Message</button>
+    <button type="submit">Submit</button>
 </form>
 ```
+
+**Note:** The `@pcaptcha` directive no longer accepts parameters. All configuration is controlled via the config file (`config/p-captcha.php`).
 
 ### 2. Protect Your Route
 
@@ -196,54 +190,44 @@ $html = PCaptcha::renderCaptcha('theme=light');
 
 ## Configuration
 
-The package configuration is located in `config/p-captcha.php`. Key settings include:
+All CAPTCHA behavior is controlled via the configuration file. Publish the config file:
 
-### Difficulty Levels
-
-```php
-'difficulty_levels' => [
-    'easy' => 2,      // 2 leading zeros in hash
-    'medium' => 3,    // 3 leading zeros in hash
-    'hard' => 4,      // 4 leading zeros in hash
-    'extreme' => 5,   // 5 leading zeros in hash
-],
+```bash
+php artisan vendor:publish --provider="Core45\LaravelPCaptcha\Providers\PCaptchaServiceProvider" --tag="config"
 ```
 
-### Challenge Types
+### Key Configuration Options
 
 ```php
-'challenge_types' => [
-    'beam_alignment',    // Drag beam source to target
-    'sequence_complete', // Complete number sequences
-],
-```
+// config/p-captcha.php
 
-### Adaptive Difficulty
-
-```php
-'adaptive_difficulty' => [
-    'enabled' => true,
-    'failure_thresholds' => [
-        'medium' => 1,   // 1 failure = medium difficulty
-        'hard' => 3,     // 3 failures = hard difficulty
-        'extreme' => 5,  // 5 failures = extreme difficulty
+return [
+    // Force visual CAPTCHA to always show (bypasses bot detection)
+    'force_visual_captcha' => false,
+    
+    // UI/UX settings
+    'ui' => [
+        'theme' => 'light',           // 'dark' or 'light'
+        'auto_load' => true,          // Whether to auto-load CAPTCHA on page load
+        'show_instructions' => true,
+        'auto_show_after_attempts' => 3,
     ],
-],
-```
-
-### UI Customization
-
-```php
-'ui' => [
-    'theme' => 'dark',           // 'dark' or 'light'
-    'auto_show_after_attempts' => 2, // Show after N failed attempts
-    'beam_alignment' => [
-        'tolerance' => 15,       // Pixel tolerance
-        'canvas_width' => 400,
-        'canvas_height' => 300,
+    
+    // Available challenge types
+    'challenge_types' => [
+        'beam_alignment',    // Drag beam source to target
+        'sequence_complete', // Complete number sequences
     ],
-],
+    
+    // ... other options
+];
 ```
+
+### Important Settings
+
+- **`ui.auto_load`**: Set to `true` to automatically load and display the CAPTCHA when the page loads. Set to `false` to load it only when needed (e.g., after failed attempts).
+- **`ui.theme`**: Choose between `'light'` and `'dark'` themes.
+- **`force_visual_captcha`**: Set to `true` to always show visual challenges, bypassing bot detection.
 
 ## Bot Detection Methods
 

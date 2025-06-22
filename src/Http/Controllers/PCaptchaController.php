@@ -258,7 +258,8 @@ class PCaptchaController extends Controller
      */
     public function widget(Request $request): string
     {
-        $options = $request->query('options', '');
-        return $this->captchaService->renderCaptcha($options);
+        // All options are now controlled via config file
+        // Query parameters are ignored for consistency
+        return $this->captchaService->renderCaptcha('');
     }
 }

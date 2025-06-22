@@ -88,7 +88,9 @@ class PCaptchaServiceProvider extends ServiceProvider
     protected function registerBladeDirective(): void
     {
         Blade::directive('pcaptcha', function ($expression) {
-            return "<?php echo app('p-captcha')->renderCaptcha({$expression}); ?>";
+            // All options are now controlled via config file
+            // Parameters are ignored for consistency
+            return "<?php echo app('p-captcha')->renderCaptcha(''); ?>";
         });
     }
 
