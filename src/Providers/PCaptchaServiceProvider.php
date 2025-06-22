@@ -108,15 +108,45 @@ class PCaptchaServiceProvider extends ServiceProvider
                         \$botDetected = true;
                     }
                     
+                    // Check if force_visual_captcha is enabled
+                    \$forceVisualCaptcha = config('p-captcha.force_visual_captcha', false);
+                    \$captchaRequired = \$botDetected || \$forceVisualCaptcha;
+                    
                     \Log::info('P-CAPTCHA: @pcaptcha directive processed', [
                         'ip' => \$request->ip(),
                         'user_agent' => \$userAgent,
                         'bot_detected' => \$botDetected,
+                        'force_visual_captcha' => \$forceVisualCaptcha,
+                        'captcha_required' => \$captchaRequired,
                         'method' => \$request->method(),
                         'url' => \$request->url()
                     ]);
+                    
+                    // Only render CAPTCHA if required
+                    if (\$captchaRequired) {
+                        echo app('p-captcha')->renderCaptcha('');
+                    }
+                } else {
+                    // When debug is off, still run the logic but don't log
+                    \$request = request();
+                    \$userAgent = \$request->userAgent();
+                    \$botDetected = false;
+                    
+                    if (empty(\$userAgent)) {
+                        \$botDetected = true;
+                    } elseif (stripos(\$userAgent, 'bot') !== false || 
+                             stripos(\$userAgent, 'crawler') !== false ||
+                             stripos(\$userAgent, 'spider') !== false) {
+                        \$botDetected = true;
+                    }
+                    
+                    \$forceVisualCaptcha = config('p-captcha.force_visual_captcha', false);
+                    \$captchaRequired = \$botDetected || \$forceVisualCaptcha;
+                    
+                    if (\$captchaRequired) {
+                        echo app('p-captcha')->renderCaptcha('');
+                    }
                 }
-                echo app('p-captcha')->renderCaptcha('');
             ?>";
         });
     }
