@@ -817,4 +817,75 @@ class PCaptchaService
 
         return $detectedAlphabets;
     }
+
+    /**
+     * Check if the request contains forbidden words or phrases
+     * 
+     * @param array $requestData The request data to check
+     * @return array Array with 'forbidden_detected' => bool and 'detected_words' => array
+     */
+    public function checkForbiddenWords(array $requestData): array
+    {
+        $forbiddenWords = config('p-captcha.forbidden_words', []);
+        $detectedWords = $this->detectForbiddenWordsInData($requestData, $forbiddenWords);
+        $forbiddenDetected = !empty($detectedWords);
+
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Forbidden words check result', [
+                'detected_words' => $detectedWords,
+                'forbidden_detected' => $forbiddenDetected,
+                'total_forbidden_words' => count($forbiddenWords)
+            ]);
+        }
+
+        return [
+            'forbidden_detected' => $forbiddenDetected,
+            'detected_words' => $detectedWords
+        ];
+    }
+
+    /**
+     * Detect forbidden words present in the given data
+     * 
+     * @param array $data The data to analyze
+     * @param array $forbiddenWords List of forbidden words/phrases
+     * @return array Array of detected forbidden words
+     */
+    protected function detectForbiddenWordsInData(array $data, array $forbiddenWords): array
+    {
+        $detectedWords = [];
+        $textFields = $this->extractTextFields($data);
+
+        foreach ($textFields as $text) {
+            $foundWords = $this->detectForbiddenWordsInText($text, $forbiddenWords);
+            $detectedWords = array_merge($detectedWords, $foundWords);
+        }
+
+        return array_unique($detectedWords);
+    }
+
+    /**
+     * Detect forbidden words present in a text string
+     * 
+     * @param string $text The text to analyze
+     * @param array $forbiddenWords List of forbidden words/phrases
+     * @return array Array of detected forbidden words
+     */
+    protected function detectForbiddenWordsInText(string $text, array $forbiddenWords): array
+    {
+        $detectedWords = [];
+        $textLower = mb_strtolower($text, 'UTF-8');
+
+        foreach ($forbiddenWords as $forbiddenWord) {
+            $forbiddenWordLower = mb_strtolower($forbiddenWord, 'UTF-8');
+            
+            // Check if the forbidden word/phrase exists in the text
+            if (mb_strpos($textLower, $forbiddenWordLower) !== false) {
+                $detectedWords[] = $forbiddenWord;
+            }
+        }
+
+        return $detectedWords;
+    }
 }

@@ -143,6 +143,24 @@ return [
     'forbidden_alphabet_deny' => true,  // Whether to deny requests with forbidden alphabets
 
     /**
+     * Forbidden words and phrases
+     * 
+     * Words or sentences that, when detected in form submissions, automatically
+     * trigger the user to be treated as a spam bot and always challenged with CAPTCHA.
+     * 
+     * Examples of common spam patterns:
+     * - Names of known spammers
+     * - Common spam phrases
+     * - Inappropriate language
+     * - Marketing spam terms
+     */
+    'forbidden_words' => [
+        'eric jones',
+        'shit',
+        // Add more forbidden words/phrases here
+    ],
+
+    /**
      * Assets settings
      */
     'assets' => [

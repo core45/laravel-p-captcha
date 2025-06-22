@@ -341,119 +341,107 @@ Mathematical sequence completion challenges.
 
 ## Alphabet Restrictions
 
-The package includes a powerful alphabet restriction system that allows you to control which writing systems are permitted in form submissions. This feature is particularly useful for preventing spam from specific regions or languages.
+The package can detect and handle requests containing text in specific alphabets. This is useful for filtering out spam from certain regions or languages.
 
 ### Configuration
 
-Configure alphabet restrictions in your `config/p-captcha.php`:
-
 ```php
-/**
- * Alphabet restrictions
- */
-'allowed_alphabet' => [
-    'latin' => true,        // Latin script (English, French, German, Spanish, etc.)
-    'chinese' => false,     // Chinese characters (Simplified/Traditional)
-    'arabic' => false,      // Arabic script (Arabic, Persian, Urdu, etc.)
-    'devanagari' => false,  // Devanagari script (Hindi, Marathi, Nepali, etc.)
-    'cyrillic' => false,    // Cyrillic script (Russian, Bulgarian, Serbian, etc.)
-    'thai' => false,        // Thai script
-    'korean' => false,      // Korean Hangul
-    'japanese' => false,    // Japanese characters (Hiragana, Katakana, Kanji)
-    'bengali' => false,     // Bengali script
-    'tamil' => false,       // Tamil script
-    'other' => false,       // All other unlisted writing systems
-],
-'forbidden_alphabet_deny' => true,  // Whether to deny requests with forbidden alphabets
+// config/p-captcha.php
+'allowed_alphabet' => 'latin', // Only allow Latin alphabet
+'forbidden_alphabet_deny' => true, // Deny requests with forbidden alphabets
 ```
 
-### Behavior Modes
+### Supported Alphabets
 
-**Mode 1: Deny Forbidden Alphabets (Default)**
-- Requests containing forbidden alphabets are immediately rejected
-- Clear error message returned to the user
-- Form data is not processed
+- `latin` - Latin alphabet (A-Z, a-z)
+- `cyrillic` - Cyrillic alphabet (А-Я, а-я)
+- `arabic` - Arabic alphabet
+- `hebrew` - Hebrew alphabet
+- `greek` - Greek alphabet
+- `thai` - Thai alphabet
+- `hindi` - Hindi alphabet
+- `chinese` - Chinese characters
+- `japanese` - Japanese characters
+- `korean` - Korean characters
+- `other` - Any other unlisted script
 
-**Mode 2: Force CAPTCHA for Forbidden Alphabets**
-- Requests containing forbidden alphabets always trigger a visual CAPTCHA
-- Allows legitimate users with non-Latin names to still submit forms
-- Provides additional verification for suspicious submissions
+### Behavior
 
-### Usage Examples
+- If `forbidden_alphabet_deny` is `true`: Requests with forbidden alphabets are immediately denied
+- If `forbidden_alphabet_deny` is `false`: Requests with forbidden alphabets are forced to complete visual CAPTCHA
 
-**Allow Only Latin Characters:**
+## Forbidden Words Detection
+
+The package can automatically detect and challenge users who use specific words or phrases commonly associated with spam.
+
+### Configuration
+
 ```php
-'allowed_alphabet' => [
-    'latin' => true,
-    'chinese' => false,
-    'arabic' => false,
-    'devanagari' => false,
-    'cyrillic' => false,
-    'thai' => false,
-    'korean' => false,
-    'japanese' => false,
-    'bengali' => false,
-    'tamil' => false,
-    'other' => false,
+// config/p-captcha.php
+'forbidden_words' => [
+    'eric jones',
+    'shit',
+    'spam',
+    'viagra',
+    'casino',
+    'loan',
+    'credit card',
+    'make money fast',
+    'work from home',
+    'weight loss',
+    'free trial',
+    'click here',
+    'buy now',
+    'limited time',
+    'act now',
+    'urgent',
+    'exclusive offer',
+    'guaranteed',
+    'risk free',
+    'no obligation'
 ],
-'forbidden_alphabet_deny' => true,
 ```
 
-**Allow Latin and Chinese:**
+### Behavior
+
+When forbidden words are detected in any form field:
+- The user is automatically treated as a spam bot
+- Visual CAPTCHA is always required
+- The detection is case-insensitive
+- Works with both single words and phrases
+- Searches through all form fields (name, email, message, etc.)
+
+### Examples
+
 ```php
-'allowed_alphabet' => [
-    'latin' => true,
-    'chinese' => true,
-    'arabic' => false,
-    'devanagari' => false,
-    'cyrillic' => false,
-    'thai' => false,
-    'korean' => false,
-    'japanese' => false,
-    'bengali' => false,
-    'tamil' => false,
-    'other' => false,
-],
-'forbidden_alphabet_deny' => true,
+// This would trigger forbidden words detection:
+$data = [
+    'name' => 'Eric Smith',
+    'email' => 'eric@example.com',
+    'message' => 'Hello, I am Eric Jones and I have exclusive offers for you.'
+];
+// Detected: 'eric jones', 'exclusive offer'
 ```
 
-**Allow Indian Scripts:**
-```php
-'allowed_alphabet' => [
-    'latin' => true,
-    'chinese' => false,
-    'arabic' => false,
-    'devanagari' => true,  // Hindi, Marathi, Nepali
-    'cyrillic' => false,
-    'thai' => false,
-    'korean' => false,
-    'japanese' => false,
-    'bengali' => true,     // Bengali, Assamese
-    'tamil' => true,       // Tamil
-    'other' => false,
-],
-'forbidden_alphabet_deny' => true,
-```
+For detailed information about forbidden words detection and advanced usage, see [FORBIDDEN_WORDS.md](FORBIDDEN_WORDS.md).
 
-**Force CAPTCHA for Non-Latin:**
-```php
-'allowed_alphabet' => [
-    'latin' => true,
-    'chinese' => false,
-    'arabic' => false,
-    'devanagari' => false,
-    'cyrillic' => false,
-    'thai' => false,
-    'korean' => false,
-    'japanese' => false,
-    'bengali' => false,
-    'tamil' => false,
-    'other' => false,
-],
-'forbidden_alphabet_deny' => false, // Force CAPTCHA instead of denying
-```
+## Challenge Types
 
-For detailed information about supported writing systems and advanced usage, see [ALPHABET_RESTRICTIONS.md](ALPHABET_RESTRICTIONS.md).
+When bot behavior is detected, users may encounter these challenges:
+
+### 1. Beam Alignment
+An innovative challenge where users drag a beam source to align with a target.
+
+- **Difficulty**: Visual coordination
+- **Mobile**: Touch-optimized
+- **Accessibility**: Keyboard navigation support
+
+### 2. Sequence Completion
+Mathematical sequence completion challenges.
+
+- **Types**: Arithmetic, geometric sequences
+- **Difficulty**: Number complexity varies
+- **Educational**: Engaging for users
 
 ## Customization
 

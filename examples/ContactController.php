@@ -45,33 +45,24 @@ class ContactController extends Controller
      */
     public function store(Request $request)
     {
-        // Validate form data (CAPTCHA already validated by middleware)
+        // P-CAPTCHA middleware automatically handles:
+        // - Bot detection
+        // - Alphabet restrictions
+        // - Forbidden words detection
+        // - Visual CAPTCHA validation
+        
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'subject' => 'required|string|max:255',
-            'message' => 'required|string|max:2000',
+            'email' => 'required|email',
+            'message' => 'required|string|max:1000',
         ]);
 
-        // Create contact record
-        $contact = Contact::create($validated);
+        // If we reach this point, the user has passed all CAPTCHA checks
+        // including forbidden words detection (if any were found, CAPTCHA was required)
+        
+        Contact::create($validated);
 
-        // Send email notification
-        Mail::to(config('mail.contact_address'))->send(new ContactFormMail($contact));
-
-        // Reset CAPTCHA attempt counter after successful submission
-        $this->resetCaptchaAttempts();
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Thank you for your message! We\'ll get back to you soon.',
-                'contact_id' => $contact->id
-            ]);
-        }
-
-        return redirect()->route('contact.create')
-            ->with('success', 'Thank you for your message! We\'ll get back to you soon.');
+        return redirect()->back()->with('success', 'Message sent successfully!');
     }
 
     /**

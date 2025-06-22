@@ -38,6 +38,9 @@ class ProtectWithPCaptcha
         // Check for forbidden alphabets in the request data
         $alphabetCheck = $this->checkAlphabetRestrictions($request);
 
+        // Check for forbidden words in the request data
+        $forbiddenWordsCheck = $this->checkForbiddenWords($request);
+
         // Check if visual CAPTCHA validation is required
         $visualCaptchaRequired = $this->isVisualCaptchaRequired($request, $botDetected);
 
@@ -46,6 +49,7 @@ class ProtectWithPCaptcha
             \Log::info('P-CAPTCHA: Middleware decision', [
                 'bot_detected' => $botDetected,
                 'alphabet_check' => $alphabetCheck,
+                'forbidden_words_check' => $forbiddenWordsCheck,
                 'visual_captcha_required' => $visualCaptchaRequired,
                 'force_visual_captcha' => config('p-captcha.force_visual_captcha', false),
                 'has_hidden_data' => $this->hasHiddenCaptchaData($request),
@@ -65,6 +69,21 @@ class ProtectWithPCaptcha
             } else {
                 // Force visual CAPTCHA for all requests with forbidden alphabets
                 $visualCaptchaRequired = true;
+            }
+        }
+
+        // Handle forbidden words detection
+        if ($forbiddenWordsCheck['forbidden_detected']) {
+            // Always force visual CAPTCHA for users with forbidden words
+            $visualCaptchaRequired = true;
+            
+            // Debug logging (only when APP_DEBUG is enabled)
+            if (config('app.debug', false)) {
+                \Log::warning('P-CAPTCHA: Forbidden words detected - forcing CAPTCHA', [
+                    'detected_words' => $forbiddenWordsCheck['detected_words'],
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent()
+                ]);
             }
         }
 
@@ -540,5 +559,17 @@ class ProtectWithPCaptcha
         return back()
             ->withErrors(['alphabet' => $message])
             ->withInput($request->except(['p_captcha_id', 'p_captcha_solution', '_captcha_token', '_captcha_field']));
+    }
+
+    /**
+     * Check for forbidden words in the request data
+     * 
+     * @param Request $request
+     * @return array Array with 'forbidden_detected' => bool and 'detected_words' => array
+     */
+    protected function checkForbiddenWords(Request $request): array
+    {
+        $requestData = $request->all();
+        return $this->captchaService->checkForbiddenWords($requestData);
     }
 }
