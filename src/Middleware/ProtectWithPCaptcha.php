@@ -275,14 +275,56 @@ class ProtectWithPCaptcha
     protected function validateVisualCaptcha(Request $request): bool
     {
         $challengeId = $request->input('p_captcha_id');
-        $solution = $request->input('p_captcha_solution', []);
+        $solution = $request->input('p_captcha_solution');
+
+        // Debug logging (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Visual validation attempt', [
+                'challenge_id' => $challengeId,
+                'solution_raw' => $solution,
+                'solution_type' => gettype($solution),
+                'ip' => $request->ip()
+            ]);
+        }
+
+        // Handle different solution formats
+        if (is_string($solution)) {
+            // Try to decode JSON string
+            $decoded = json_decode($solution, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $solution = $decoded;
+            } else {
+                // If not valid JSON, treat as single value
+                $solution = ['answer' => $solution];
+            }
+        }
 
         // Ensure solution is an array
         if (!is_array($solution)) {
-            $solution = json_decode($solution, true) ?? [];
+            $solution = ['answer' => $solution];
         }
 
-        return $this->captchaService->validateSolution($challengeId, $solution);
+        // Debug logging for processed solution (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Processed solution', [
+                'challenge_id' => $challengeId,
+                'solution_processed' => $solution,
+                'ip' => $request->ip()
+            ]);
+        }
+
+        $isValid = $this->captchaService->validateSolution($challengeId, $solution);
+
+        // Debug logging for result (only when APP_DEBUG is enabled)
+        if (config('app.debug', false)) {
+            \Log::info('P-CAPTCHA: Validation result', [
+                'challenge_id' => $challengeId,
+                'valid' => $isValid,
+                'ip' => $request->ip()
+            ]);
+        }
+
+        return $isValid;
     }
 
     /**

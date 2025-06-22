@@ -268,6 +268,15 @@ class PCaptchaWidget {
             this.validateBtn.disabled = true;
             this.showStatus('Validating...', 'info');
 
+            // Debug logging (only when APP_DEBUG is enabled)
+            if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+                console.log('P-CAPTCHA: Sending validation request', {
+                    challenge_id: this.currentChallenge.id,
+                    solution: this.solution,
+                    challenge_type: this.currentChallenge.type
+                });
+            }
+
             const response = await fetch('/p-captcha/validate', {
                 method: 'POST',
                 headers: {
@@ -282,10 +291,23 @@ class PCaptchaWidget {
 
             const data = await response.json();
 
+            // Debug logging (only when APP_DEBUG is enabled)
+            if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+                console.log('P-CAPTCHA: Validation response', data);
+            }
+
             if (data.success && data.valid) {
                 this.verified = true;
                 this.solutionInput.value = JSON.stringify(this.solution);
                 this.showStatus('CAPTCHA verified successfully!', 'success');
+
+                // Debug logging (only when APP_DEBUG is enabled)
+                if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
+                    console.log('P-CAPTCHA: Solution stored in hidden field', {
+                        challenge_id: this.challengeIdInput.value,
+                        solution: this.solutionInput.value
+                    });
+                }
 
                 // Disable further interaction
                 this.challengeEl.style.pointerEvents = 'none';

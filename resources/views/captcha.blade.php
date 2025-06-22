@@ -53,6 +53,11 @@
 
 {{-- Initialize CAPTCHA --}}
 <script>
+    // Pass Laravel's debug setting to JavaScript
+    window.pCaptchaDebug = {
+        enabled: {{ config('app.debug', false) ? 'true' : 'false' }}
+    };
+
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof PCaptcha !== 'undefined') {
             @if($options['auto_load'])
