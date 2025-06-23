@@ -24,7 +24,7 @@ return [
     'network_error_try_again' => 'Błąd sieci. Spróbuj ponownie.',
 
     // Challenge Instructions
-    'align_beam_source_target' => 'Wyrównaj połączone kółka, przeciągając je tak by jendo znalazło się na drugim.',
+    'align_beam_source_target' => 'Wyrównaj połączone kółka, przeciągając czerwone tak by znalazło się na zielonym.',
     'complete_sequence_select_next' => 'Ukończ sekwencję, wybierając następną liczbę.',
 
     // Sequence Instructions
