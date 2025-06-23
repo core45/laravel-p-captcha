@@ -2,31 +2,31 @@
 
 return [
     // UI Elements
-    'human_verification' => 'Weryfikacja Człowieka',
+    'human_verification' => 'Udowodnij, że jesteś człowiekiem',
     'loading_challenge' => 'Ładowanie wyzwania...',
     'initializing_secure_challenge' => 'Inicjalizacja bezpiecznego wyzwania...',
     'new_challenge' => 'Nowe Wyzwanie',
     'validate' => 'Waliduj',
     'complete_challenge_below' => 'Ukończ wyzwanie poniżej',
-    
+
     // Status Messages
     'beam_aligned' => 'Promień wyrównany! Kliknij Waliduj, aby kontynuować.',
     'validating' => 'Walidacja...',
     'captcha_verified_successfully' => 'CAPTCHA została pomyślnie zweryfikowana!',
     'captcha_solved_successfully' => 'CAPTCHA rozwiązana pomyślnie',
     'invalid_captcha_solution' => 'Nieprawidłowe rozwiązanie CAPTCHA',
-    
+
     // Error Messages
     'failed_to_load_challenge' => 'Nie udało się załadować wyzwania. Odśwież stronę.',
     'unknown_challenge_type' => 'Nieznany typ wyzwania: :type',
     'please_complete_challenge_first' => 'Najpierw ukończ wyzwanie',
     'invalid_solution_try_again' => 'Nieprawidłowe rozwiązanie. Spróbuj ponownie.',
     'network_error_try_again' => 'Błąd sieci. Spróbuj ponownie.',
-    
+
     // Challenge Instructions
-    'align_beam_source_target' => 'Wyrównaj źródło promienia z celem, przeciągając źródło, aby umożliwić kolizję cząstek',
+    'align_beam_source_target' => 'Wyrównaj połączone kółka, przeciągając je tak by jendo znalazło się na drugim.',
     'complete_sequence_select_next' => 'Ukończ sekwencję, wybierając następną liczbę.',
-    
+
     // Sequence Instructions
     'add_1_to_last_number' => 'Dodaj 1 do ostatniej liczby (:number), aby otrzymać następną liczbę.',
     'add_2_to_last_number' => 'Dodaj 2 do ostatniej liczby (:number), aby otrzymać następną liczbę.',
@@ -40,7 +40,7 @@ return [
     'double_last_number' => 'Podwoj ostatnią liczbę (:number), aby otrzymać następną liczbę.',
     'triple_last_number' => 'Potroi ostatnią liczbę (:number), aby otrzymać następną liczbę.',
     'multiply_last_number_by_ratio' => 'Pomnoż ostatnią liczbę (:number) przez :ratio, aby otrzymać następną liczbę.',
-    
+
     // API Messages
     'too_many_requests_wait' => 'Zbyt wiele żądań. Poczekaj przed generowaniem nowych wyzwań.',
     'too_many_validation_attempts_wait' => 'Zbyt wiele prób walidacji. Poczekaj.',
@@ -49,13 +49,13 @@ return [
     'failed_to_validate_captcha' => 'Nie udało się zwalidować CAPTCHA',
     'too_many_requests_wait_general' => 'Zbyt wiele żądań. Poczekaj.',
     'failed_to_generate_token' => 'Nie udało się wygenerować tokenu',
-    
+
     // Middleware Messages
     'suspicious_activity_detected' => 'Wykryto podejrzaną aktywność. Ukończ weryfikację.',
     'please_complete_verification_challenge' => 'Ukończ wyzwanie weryfikacyjne.',
     'please_complete_form_validation' => 'Ukończ walidację formularza.',
-    
+
     // Form Validation Messages
     'there_were_errors_with_submission' => 'Wystąpił błąd z Twoim zgłoszeniem|Wystąpiły :count błędy z Twoim zgłoszeniem',
     'captcha_verification_failed_try_again' => 'Weryfikacja CAPTCHA nie powiodła się. Spróbuj ponownie.',
-]; 
+];

@@ -2,7 +2,7 @@
 
 return [
     // UI Elements
-    'human_verification' => 'Verificación Humana',
+    'human_verification' => '¿Eres humano?',
     'loading_challenge' => 'Cargando desafío...',
     'initializing_secure_challenge' => 'Inicializando desafío seguro...',
     'new_challenge' => 'Nuevo Desafío',
