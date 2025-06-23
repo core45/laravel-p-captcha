@@ -196,6 +196,65 @@ All CAPTCHA behavior is controlled via the configuration file. Publish the confi
 php artisan vendor:publish --provider="Core45\LaravelPCaptcha\Providers\PCaptchaServiceProvider" --tag="config"
 ```
 
+## Translations
+
+The P-CAPTCHA package supports multiple languages. Translation files are included for English, Polish, and Spanish.
+
+### Available Languages
+
+- **English** (`en`) - Default
+- **Polish** (`pl`) - Polski
+- **Spanish** (`es`) - Español
+
+### Using Translations
+
+The package automatically uses Laravel's localization system. To change the language:
+
+1. **Set the application locale** in your `config/app.php`:
+```php
+'locale' => 'pl', // For Polish
+'locale' => 'es', // For Spanish
+```
+
+2. **Or set it dynamically** in your application:
+```php
+App::setLocale('pl');
+```
+
+### Customizing Translations
+
+You can publish and customize the translation files:
+
+```bash
+# Publish translation files
+php artisan vendor:publish --provider="Core45\LaravelPCaptcha\Providers\PCaptchaServiceProvider" --tag="translations"
+
+# This will create:
+# resources/lang/vendor/p-captcha/en/p-captcha.php
+# resources/lang/vendor/p-captcha/pl/p-captcha.php
+# resources/lang/vendor/p-captcha/es/p-captcha.php
+```
+
+### Adding New Languages
+
+To add support for a new language:
+
+1. Create a new translation file: `packages/core45/laravel-p-captcha/resources/lang/[locale]/p-captcha.php`
+2. Copy the English translations and translate them
+3. The package will automatically detect and use the new language
+
+### Translation Keys
+
+The package uses the following translation keys:
+
+- **UI Elements**: `human_verification`, `loading_challenge`, `validate`, etc.
+- **Status Messages**: `beam_aligned`, `captcha_verified_successfully`, etc.
+- **Error Messages**: `failed_to_load_challenge`, `invalid_solution_try_again`, etc.
+- **Challenge Instructions**: `align_beam_source_target`, `complete_sequence_select_next`, etc.
+- **Sequence Instructions**: `add_1_to_last_number`, `triple_last_number`, etc.
+- **API Messages**: `too_many_requests_wait`, `failed_to_validate_captcha`, etc.
+- **Middleware Messages**: `suspicious_activity_detected`, `please_complete_verification_challenge`, etc.
+
 ### Key Configuration Options
 
 ```php

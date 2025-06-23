@@ -34,7 +34,7 @@ class PCaptchaController extends Controller
             if (RateLimiter::tooManyAttempts($key, $rateLimits['max_attempts'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Too many requests. Please wait before generating new challenges.'
+                    'message' => __('p-captcha::p-captcha.too_many_requests_wait')
                 ], 429);
             }
 
@@ -68,7 +68,7 @@ class PCaptchaController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate CAPTCHA challenge'
+                'message' => __('p-captcha::p-captcha.failed_to_generate_captcha_challenge')
             ], 500);
         }
     }
@@ -88,7 +88,7 @@ class PCaptchaController extends Controller
             if (RateLimiter::tooManyAttempts($key, $rateLimits['max_attempts'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Too many validation attempts. Please wait.'
+                    'message' => __('p-captcha::p-captcha.too_many_validation_attempts_wait')
                 ], 429);
             }
 
@@ -137,8 +137,8 @@ class PCaptchaController extends Controller
                 'success' => true,
                 'valid' => $isValid,
                 'message' => $isValid
-                    ? 'CAPTCHA solved successfully'
-                    : 'Invalid CAPTCHA solution'
+                    ? __('p-captcha::p-captcha.captcha_solved_successfully')
+                    : __('p-captcha::p-captcha.invalid_captcha_solution')
             ]);
 
         } catch (ValidationException $e) {
@@ -149,7 +149,7 @@ class PCaptchaController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid request data',
+                'message' => __('p-captcha::p-captcha.invalid_request_data'),
                 'errors' => $e->errors()
             ], 422);
 
@@ -161,7 +161,7 @@ class PCaptchaController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to validate CAPTCHA'
+                'message' => __('p-captcha::p-captcha.failed_to_validate_captcha')
             ], 500);
         }
     }
@@ -191,7 +191,7 @@ class PCaptchaController extends Controller
             if (RateLimiter::tooManyAttempts($key, $rateLimits['max_attempts'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Too many requests. Please wait.'
+                    'message' => __('p-captcha::p-captcha.too_many_requests_wait_general')
                 ], 429);
             }
 
@@ -234,7 +234,7 @@ class PCaptchaController extends Controller
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid request data',
+                'message' => __('p-captcha::p-captcha.invalid_request_data'),
                 'errors' => $e->errors()
             ], 422);
 
@@ -246,7 +246,7 @@ class PCaptchaController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate token'
+                'message' => __('p-captcha::p-captcha.failed_to_generate_token')
             ], 500);
         }
     }

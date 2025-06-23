@@ -99,7 +99,7 @@ class PCaptchaService
                 'offset_x' => $correctOffsetX,
                 'offset_y' => $correctOffsetY
             ],
-            'instructions' => 'Align the beam source with the target by dragging the source to enable particle collision'
+            'instructions' => __('p-captcha::p-captcha.align_beam_source_target')
         ];
     }
 
@@ -173,7 +173,7 @@ class PCaptchaService
     }
 
     /**
-     * Generate helpful instruction for sequence challenge
+     * Generate instruction text for sequence completion
      */
     protected function generateSequenceInstruction(array $config, array $sequence): string
     {
@@ -181,26 +181,25 @@ class PCaptchaService
             case 'arithmetic':
                 $step = $config['step'];
                 $lastNumber = end($sequence);
-                $nextNumber = $lastNumber + $step;
                 
                 if ($step == 1) {
-                    return "Add 1 to the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.add_1_to_last_number', ['number' => $lastNumber]);
                 } elseif ($step == 2) {
-                    return "Add 2 to the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.add_2_to_last_number', ['number' => $lastNumber]);
                 } elseif ($step == 3) {
-                    return "Add 3 to the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.add_3_to_last_number', ['number' => $lastNumber]);
                 } elseif ($step == 4) {
-                    return "Add 4 to the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.add_4_to_last_number', ['number' => $lastNumber]);
                 } elseif ($step == 5) {
-                    return "Add 5 to the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.add_5_to_last_number', ['number' => $lastNumber]);
                 } elseif ($step == 7) {
-                    return "Add 7 to the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.add_7_to_last_number', ['number' => $lastNumber]);
                 } elseif ($step == 10) {
-                    return "Add 10 to the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.add_10_to_last_number', ['number' => $lastNumber]);
                 } elseif ($step > 0) {
-                    return "Add {$step} to the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.add_step_to_last_number', ['step' => $step, 'number' => $lastNumber]);
                 } else {
-                    return "Subtract " . abs($step) . " from the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.subtract_step_from_last_number', ['step' => abs($step), 'number' => $lastNumber]);
                 }
                 
             case 'geometric':
@@ -209,15 +208,15 @@ class PCaptchaService
                 $nextNumber = $lastNumber * $ratio;
                 
                 if ($ratio == 2) {
-                    return "Double the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.double_last_number', ['number' => $lastNumber]);
                 } elseif ($ratio == 3) {
-                    return "Triple the last number ({$lastNumber}) to get the next number.";
+                    return __('p-captcha::p-captcha.triple_last_number', ['number' => $lastNumber]);
                 } else {
-                    return "Multiply the last number ({$lastNumber}) by {$ratio} to get the next number.";
+                    return __('p-captcha::p-captcha.multiply_last_number_by_ratio', ['ratio' => $ratio, 'number' => $lastNumber]);
                 }
                 
             default:
-                return "Complete the sequence by selecting the next number.";
+                return __('p-captcha::p-captcha.complete_sequence_select_next');
         }
     }
 

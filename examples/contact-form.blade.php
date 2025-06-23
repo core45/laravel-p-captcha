@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if CAPTCHA is completed
         if (typeof PCaptcha !== 'undefined' && !PCaptcha.isVerified('contact-captcha')) {
             e.preventDefault();
-            alert('Please complete the CAPTCHA verification before submitting.');
+            alert('{{ __("p-captcha::p-captcha.please_complete_challenge_first") }}');
             return false;
         }
         

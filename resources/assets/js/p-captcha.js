@@ -92,11 +92,11 @@ class PCaptchaWidget {
                 this.currentChallenge = data.challenge;
                 this.renderChallenge();
             } else {
-                throw new Error(data.message || 'Failed to load challenge');
+                throw new Error(data.message || this.translate('failed_to_load_challenge'));
             }
         } catch (error) {
             console.error('P-CAPTCHA: Failed to load challenge', error);
-            this.showError('Failed to load challenge. Please refresh the page.');
+            this.showError(this.translate('failed_to_load_challenge'));
         }
     }
 
@@ -127,7 +127,7 @@ class PCaptchaWidget {
 
         // Update instructions
         if (this.instructionsEl) {
-            this.instructionsEl.textContent = this.currentChallenge.instructions || 'Complete the challenge below';
+            this.instructionsEl.textContent = this.currentChallenge.instructions || this.translate('complete_challenge_below');
         }
 
         // Render based on challenge type
@@ -142,7 +142,7 @@ class PCaptchaWidget {
                 break;
             default:
                 console.error('P-CAPTCHA: Unknown challenge type:', this.currentChallenge.type);
-                this.showError('Unknown challenge type: ' + this.currentChallenge.type);
+                this.showError(this.translate('unknown_challenge_type', { type: this.currentChallenge.type }));
         }
     }
 
@@ -286,7 +286,7 @@ class PCaptchaWidget {
 
         if (distance <= data.tolerance) {
             this.validateBtn.disabled = false;
-            this.showStatus('Beam aligned! Click Validate to continue.', 'success');
+            this.showStatus(this.translate('beam_aligned'), 'success');
         } else {
             this.validateBtn.disabled = true;
             this.hideStatus();
@@ -329,13 +329,13 @@ class PCaptchaWidget {
 
     async validateSolution() {
         if (!this.currentChallenge || Object.keys(this.solution).length === 0) {
-            this.showError('Please complete the challenge first');
+            this.showError(this.translate('please_complete_challenge_first'));
             return;
         }
 
         try {
             this.validateBtn.disabled = true;
-            this.showStatus('Validating...', 'info');
+            this.showStatus(this.translate('validating'), 'info');
 
             // Debug logging (only when APP_DEBUG is enabled)
             if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
@@ -368,7 +368,7 @@ class PCaptchaWidget {
             if (data.success && data.valid) {
                 this.verified = true;
                 this.solutionInput.value = JSON.stringify(this.solution);
-                this.showStatus('CAPTCHA verified successfully!', 'success');
+                this.showStatus(this.translate('captcha_verified_successfully'), 'success');
 
                 // Debug logging (only when APP_DEBUG is enabled)
                 if (window.pCaptchaDebug && window.pCaptchaDebug.enabled) {
@@ -386,13 +386,13 @@ class PCaptchaWidget {
                 this.triggerFormUpdate();
 
             } else {
-                this.showError(data.message || 'Invalid solution. Please try again.');
+                this.showError(data.message || this.translate('invalid_solution_try_again'));
                 this.validateBtn.disabled = false;
             }
 
         } catch (error) {
             console.error('P-CAPTCHA: Validation failed', error);
-            this.showError('Network error. Please try again.');
+            this.showError(this.translate('network_error_try_again'));
             this.validateBtn.disabled = false;
         }
     }
@@ -416,7 +416,7 @@ class PCaptchaWidget {
         this.challengeEl.innerHTML = `
             <div class="p-captcha-loading">
                 <div class="p-captcha-spinner"></div>
-                <div>Loading challenge...</div>
+                <div>${this.translate('loading_challenge')}</div>
             </div>
         `;
     }
@@ -456,6 +456,22 @@ class PCaptchaWidget {
     }
 
     /**
+     * Translate text using Laravel's translation system
+     */
+    translate(key, parameters = {}) {
+        // Get translations from window object (set by Laravel)
+        const translations = window.pCaptchaTranslations || {};
+        let text = translations[key] || key;
+        
+        // Replace parameters
+        Object.keys(parameters).forEach(param => {
+            text = text.replace(`:${param}`, parameters[param]);
+        });
+        
+        return text;
+    }
+
+    /**
      * Render the CAPTCHA widget
      */
     render() {
@@ -470,19 +486,19 @@ class PCaptchaWidget {
         this.containerEl.innerHTML = `
             <div class="p-captcha-widget" id="${this.containerId}-widget">
                 <div class="p-captcha-header">
-                    <h3>Verification Required</h3>
-                    <p class="p-captcha-instructions">Please complete the challenge to continue</p>
+                    <h3>${this.translate('human_verification')}</h3>
+                    <p class="p-captcha-instructions">${this.translate('complete_challenge_below')}</p>
                 </div>
                 <div class="p-captcha-content">
                     <div class="p-captcha-challenge" id="${this.containerId}-challenge">
-                        <div class="p-captcha-loading">Loading challenge...</div>
+                        <div class="p-captcha-loading">${this.translate('loading_challenge')}</div>
                     </div>
                     <div class="p-captcha-controls">
                         <button type="button" class="p-captcha-validate-btn" id="${this.containerId}-validate-btn" disabled>
-                            Validate
+                            ${this.translate('validate')}
                         </button>
                         <button type="button" class="p-captcha-refresh-btn" id="${this.containerId}-refresh-btn">
-                            ↻ Refresh
+                            ↻ ${this.translate('new_challenge')}
                         </button>
                     </div>
                 </div>

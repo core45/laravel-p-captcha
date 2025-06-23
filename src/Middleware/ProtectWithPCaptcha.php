@@ -59,15 +59,18 @@ class ProtectWithPCaptcha
 
         // If bot detected but no visual CAPTCHA provided, require it
         if ($botDetected && !$this->hasVisualCaptchaData($request)) {
-            return $this->requireVisualCaptcha($request, 'Suspicious activity detected. Please complete verification.');
+            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.suspicious_activity_detected'));
         }
 
         // Validate hidden CAPTCHA if present
         if ($this->hasHiddenCaptchaData($request)) {
             if (!$this->validateHiddenCaptcha($request)) {
                 // Hidden CAPTCHA failed - require visual CAPTCHA
-                return $this->requireVisualCaptcha($request, 'Please complete the verification challenge.');
+                return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
             }
+        } else {
+            // No hidden CAPTCHA data, require visual CAPTCHA
+            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
         }
 
         // Validate visual CAPTCHA only if it's required or if data is present
@@ -85,12 +88,12 @@ class ProtectWithPCaptcha
 
         // If visual CAPTCHA is required but not provided
         if ($visualCaptchaRequired && !$this->hasVisualCaptchaData($request)) {
-            return $this->requireVisualCaptcha($request, 'Please complete the verification challenge.');
+            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
         }
 
         // If we get here, some form of CAPTCHA is required
         if ($botDetected) {
-            return $this->requireVisualCaptcha($request, 'Please complete the verification challenge.');
+            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
         } else {
             return $this->requireHiddenCaptcha($request);
         }
@@ -396,16 +399,16 @@ class ProtectWithPCaptcha
         $this->incrementAttemptCount();
 
         if ($request->expectsJson()) {
-            return new JsonResponse([
+            return response()->json([
                 'success' => false,
-                'message' => 'Please complete the form validation.',
+                'message' => __('p-captcha::p-captcha.please_complete_form_validation'),
                 'hidden_captcha_required' => true
             ], 422);
         }
 
-        return back()
-            ->withErrors(['form' => 'Please complete the form validation.'])
-            ->withInput($request->except(['_captcha_token', '_captcha_field']));
+        return redirect()->back()
+            ->withErrors(['form' => __('p-captcha::p-captcha.please_complete_form_validation')])
+            ->withInput();
     }
 
     /**

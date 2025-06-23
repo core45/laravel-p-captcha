@@ -93,7 +93,7 @@ class ContactController extends Controller
         // Check if CAPTCHA validation is required and valid
         if ($this->isCaptchaRequired()) {
             if (!$this->validateCaptcha($request)) {
-                return $this->captchaErrorResponse($request, 'Please complete the CAPTCHA verification.');
+                return $this->captchaErrorResponse($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
             }
         }
 

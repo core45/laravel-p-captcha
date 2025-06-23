@@ -41,6 +41,9 @@ class PCaptchaServiceProvider extends ServiceProvider
         // Register views
         $this->registerViews();
 
+        // Register translations
+        $this->registerTranslations();
+
         // Register Blade directive
         $this->registerBladeDirective();
 
@@ -80,6 +83,14 @@ class PCaptchaServiceProvider extends ServiceProvider
     protected function registerViews(): void
     {
         $this->loadViewsFrom(__DIR__.'/../../resources/views', 'p-captcha');
+    }
+
+    /**
+     * Register package translations
+     */
+    protected function registerTranslations(): void
+    {
+        $this->loadTranslationsFrom(__DIR__.'/../../resources/lang', 'p-captcha');
     }
 
     /**
@@ -189,6 +200,11 @@ class PCaptchaServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../../database/migrations' => database_path('migrations'),
             ], 'p-captcha-migrations');
+
+            // Publish translations
+            $this->publishes([
+                __DIR__.'/../../resources/lang' => resource_path('lang/vendor/p-captcha'),
+            ], 'p-captcha-translations');
         }
     }
 

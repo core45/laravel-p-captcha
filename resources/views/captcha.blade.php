@@ -7,9 +7,9 @@
 
     {{-- CAPTCHA Header --}}
     <div class="p-captcha-header">
-        <h3 class="p-captcha-title">Human Verification</h3>
+        <h3 class="p-captcha-title">{{ __('p-captcha::p-captcha.human_verification') }}</h3>
         <p class="p-captcha-instructions" id="{{ $options['id'] }}-instructions">
-            Loading challenge...
+            {{ __('p-captcha::p-captcha.loading_challenge') }}
         </p>
     </div>
 
@@ -17,7 +17,7 @@
     <div class="p-captcha-challenge" id="{{ $options['id'] }}-challenge">
         <div class="p-captcha-loading">
             <div class="p-captcha-spinner"></div>
-            <div>Initializing secure challenge...</div>
+            <div>{{ __('p-captcha::p-captcha.initializing_secure_challenge') }}</div>
         </div>
     </div>
 
@@ -25,13 +25,13 @@
     <div class="p-captcha-controls">
         <button type="button" class="p-captcha-btn p-captcha-btn-secondary"
                 onclick="PCaptcha.refresh('{{ $options['id'] }}')">
-            New Challenge
+            {{ __('p-captcha::p-captcha.new_challenge') }}
         </button>
         <button type="button" class="p-captcha-btn p-captcha-btn-primary"
                 id="{{ $options['id'] }}-validate"
                 onclick="PCaptcha.validate('{{ $options['id'] }}')"
                 disabled>
-            Validate
+            {{ __('p-captcha::p-captcha.validate') }}
         </button>
     </div>
 
@@ -58,6 +58,26 @@
     // Pass Laravel's debug setting to JavaScript
     window.pCaptchaDebug = {
         enabled: {{ config('app.debug', false) ? 'true' : 'false' }}
+    };
+
+    // Pass translations to JavaScript
+    window.pCaptchaTranslations = {
+        'human_verification': '{{ __("p-captcha::p-captcha.human_verification") }}',
+        'loading_challenge': '{{ __("p-captcha::p-captcha.loading_challenge") }}',
+        'initializing_secure_challenge': '{{ __("p-captcha::p-captcha.initializing_secure_challenge") }}',
+        'new_challenge': '{{ __("p-captcha::p-captcha.new_challenge") }}',
+        'validate': '{{ __("p-captcha::p-captcha.validate") }}',
+        'complete_challenge_below': '{{ __("p-captcha::p-captcha.complete_challenge_below") }}',
+        'beam_aligned': '{{ __("p-captcha::p-captcha.beam_aligned") }}',
+        'validating': '{{ __("p-captcha::p-captcha.validating") }}',
+        'captcha_verified_successfully': '{{ __("p-captcha::p-captcha.captcha_verified_successfully") }}',
+        'captcha_solved_successfully': '{{ __("p-captcha::p-captcha.captcha_solved_successfully") }}',
+        'invalid_captcha_solution': '{{ __("p-captcha::p-captcha.invalid_captcha_solution") }}',
+        'failed_to_load_challenge': '{{ __("p-captcha::p-captcha.failed_to_load_challenge") }}',
+        'unknown_challenge_type': '{{ __("p-captcha::p-captcha.unknown_challenge_type") }}',
+        'please_complete_challenge_first': '{{ __("p-captcha::p-captcha.please_complete_challenge_first") }}',
+        'invalid_solution_try_again': '{{ __("p-captcha::p-captcha.invalid_solution_try_again") }}',
+        'network_error_try_again': '{{ __("p-captcha::p-captcha.network_error_try_again") }}'
     };
 
     document.addEventListener('DOMContentLoaded', function() {
