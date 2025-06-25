@@ -32,14 +32,28 @@ class ProtectWithPCaptcha
             return $next($request);
         }
 
+        // Check for suspicious words first (this will set session if detected)
+        $suspiciousWordsDetected = $this->checkSuspiciousWords($request);
+        
+        // Determine if visual CAPTCHA is required
+        $visualCaptchaRequired = $this->isVisualCaptchaRequired($request);
+
+        if ($visualCaptchaRequired) {
+            // Clear any existing CAPTCHA token to force new validation
+            $request->session()->forget('p_captcha_token');
+            
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Visual CAPTCHA required', [
+                    'suspicious_words_detected' => $suspiciousWordsDetected,
+                    'bot_detected' => $this->detectBotBehavior($request),
+                    'force_visual_config' => config('p-captcha.force_visual_captcha', false),
+                    'force_visual_session' => session('p-captcha.force_visual_captcha', false)
+                ]);
+            }
+        }
+
         // First check for bot behavior using hidden validation
         $botDetected = $this->detectBotBehavior($request);
-        
-        // Check for suspicious words separately
-        $suspiciousWordsDetected = $this->checkSuspiciousWords($request);
-
-        // Check if visual CAPTCHA validation is required
-        $visualCaptchaRequired = $this->isVisualCaptchaRequired($request, $botDetected, $suspiciousWordsDetected);
 
         // Debug logging (only when APP_DEBUG is enabled)
         if (config('app.debug', false)) {
@@ -55,19 +69,19 @@ class ProtectWithPCaptcha
             ]);
         }
 
-        // If no CAPTCHA is required and no bot detected and no suspicious words, allow through
-        if (!$visualCaptchaRequired && !$botDetected && !$suspiciousWordsDetected) {
+        // If no CAPTCHA is required and no bot detected, allow through
+        if (!$visualCaptchaRequired && !$botDetected) {
             // Normal user with no suspicious behavior - allow through
             return $next($request);
         }
 
-        // If bot detected or suspicious words detected but no visual CAPTCHA provided, require it immediately
-        if (($botDetected || $suspiciousWordsDetected) && !$this->hasVisualCaptchaData($request)) {
+        // If bot detected but no visual CAPTCHA provided, require it immediately
+        if ($botDetected && !$this->hasVisualCaptchaData($request)) {
             return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.suspicious_activity_detected'));
         }
 
-        // If bot detected or suspicious words detected and visual CAPTCHA data is provided, validate it
-        if (($botDetected || $suspiciousWordsDetected) && $this->hasVisualCaptchaData($request)) {
+        // If bot detected and visual CAPTCHA data is provided, validate it
+        if ($botDetected && $this->hasVisualCaptchaData($request)) {
             $isValid = $this->validateVisualCaptcha($request);
             if ($isValid) {
                 // CAPTCHA passed, continue with request
@@ -78,8 +92,8 @@ class ProtectWithPCaptcha
             }
         }
 
-        // Handle cases where visual CAPTCHA is required but not due to bot detection or suspicious words
-        if ($visualCaptchaRequired && !$botDetected && !$suspiciousWordsDetected) {
+        // Handle cases where visual CAPTCHA is required but not due to bot detection
+        if ($visualCaptchaRequired && !$botDetected) {
             if ($this->hasVisualCaptchaData($request)) {
                 $isValid = $this->validateVisualCaptcha($request);
                 if ($isValid) {
@@ -92,20 +106,20 @@ class ProtectWithPCaptcha
             }
         }
 
-        // Validate hidden CAPTCHA if present (only for non-bot, non-suspicious cases)
-        if (!$botDetected && !$suspiciousWordsDetected && $this->hasHiddenCaptchaData($request)) {
+        // Validate hidden CAPTCHA if present (only for non-bot cases)
+        if (!$botDetected && $this->hasHiddenCaptchaData($request)) {
             if (!$this->validateHiddenCaptcha($request)) {
                 // Hidden CAPTCHA failed - require visual CAPTCHA
                 return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
             }
         }
 
-        // If we get here and no bot detected and no suspicious words, allow through (hidden CAPTCHA passed or not required)
-        if (!$botDetected && !$suspiciousWordsDetected) {
+        // If we get here and no bot detected, allow through (hidden CAPTCHA passed or not required)
+        if (!$botDetected) {
             return $next($request);
         }
 
-        // Fallback: if bot detected or suspicious words but we somehow got here, require visual CAPTCHA
+        // Fallback: if bot detected but we somehow got here, require visual CAPTCHA
         return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.suspicious_activity_detected'));
     }
 
@@ -237,50 +251,31 @@ class ProtectWithPCaptcha
     }
 
     /**
-     * Check for suspicious words in form fields
+     * Check if suspicious words are detected in form fields
      */
-    protected function checkSuspiciousWords(Request $request): bool
+    private function checkSuspiciousWords(Request $request): bool
     {
-        // If force_visual_captcha is true, skip suspicious words check
-        if (config('p-captcha.force_visual_captcha', false)) {
-            return false;
-        }
-
         $suspiciousWords = config('p-captcha.suspicious_words', []);
         
         if (empty($suspiciousWords)) {
             return false;
         }
 
-        // Get all form input data
-        $allInput = $request->all();
-        
-        // Check each suspicious word against all form fields
-        foreach ($suspiciousWords as $suspiciousWord) {
-            foreach ($allInput as $fieldName => $fieldValue) {
-                // Skip CAPTCHA-related fields
-                if (in_array($fieldName, ['_captcha_token', '_captcha_field', 'p_captcha_id', 'p_captcha_solution'])) {
-                    continue;
-                }
-                
-                // Convert field value to string and check for exact match (case-insensitive)
-                $fieldValueStr = is_array($fieldValue) ? implode(' ', $fieldValue) : (string) $fieldValue;
-                
-                if (stripos($fieldValueStr, $suspiciousWord) !== false) {
-                    // Check if it's an exact match (not just a partial match)
-                    $pattern = '/\b' . preg_quote($suspiciousWord, '/') . '\b/i';
-                    if (preg_match($pattern, $fieldValueStr)) {
-                        if (config('app.debug', false)) {
-                            \Log::info('P-CAPTCHA: Suspicious word detected', [
-                                'suspicious_word' => $suspiciousWord,
-                                'field_name' => $fieldName,
-                                'field_value' => $fieldValueStr,
-                                'ip' => $request->ip()
-                            ]);
-                        }
-                        
-                        return true;
-                    }
+        $formData = array_merge(
+            $request->all(),
+            $request->input() ?? []
+        );
+
+        foreach ($formData as $fieldValue) {
+            if (!is_string($fieldValue)) {
+                continue;
+            }
+
+            foreach ($suspiciousWords as $word) {
+                if (strcasecmp(trim($fieldValue), trim($word)) === 0) {
+                    // Store in session to force visual captcha
+                    session(['p-captcha.force_visual_captcha' => true]);
+                    return true;
                 }
             }
         }
@@ -289,42 +284,18 @@ class ProtectWithPCaptcha
     }
 
     /**
-     * Check if visual CAPTCHA is required
+     * Determine if visual CAPTCHA is required
      */
-    protected function isVisualCaptchaRequired(Request $request, bool $botDetected, bool $suspiciousWordsDetected): bool
+    private function isVisualCaptchaRequired(Request $request): bool
     {
-        // Check if visual CAPTCHA is forced in config
-        $forceVisual = config('p-captcha.force_visual_captcha', false);
-        if ($forceVisual) {
-            if (config('app.debug', false)) {
-                \Log::info('P-CAPTCHA: Visual CAPTCHA required - forced in config');
-            }
+        // Check if force_visual_captcha is set in config or session
+        if (config('p-captcha.force_visual_captcha', false) || 
+            session('p-captcha.force_visual_captcha', false)) {
             return true;
         }
 
-        if ($botDetected || $suspiciousWordsDetected) {
-            if (config('app.debug', false)) {
-                \Log::info('P-CAPTCHA: Visual CAPTCHA required - bot detected or suspicious words detected');
-            }
-            return true;
-        }
-
-        $sessionId = Session::getId();
-        $attemptCount = Cache::get("form_attempts:{$sessionId}", 0);
-        $threshold = config('p-captcha.ui.auto_show_after_attempts', 3); // Increased since we have hidden validation
-
-        $requiredByAttempts = $attemptCount >= $threshold;
-        
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Visual CAPTCHA requirement check', [
-                'attempt_count' => $attemptCount,
-                'threshold' => $threshold,
-                'required_by_attempts' => $requiredByAttempts,
-                'session_id' => $sessionId
-            ]);
-        }
-
-        return $requiredByAttempts;
+        // Check for bot behavior
+        return $this->detectBotBehavior($request);
     }
 
     /**
@@ -344,53 +315,52 @@ class ProtectWithPCaptcha
     }
 
     /**
+     * Clear the force visual captcha session flag
+     */
+    private function clearForceVisualCaptchaSession(): void
+    {
+        session()->forget('p-captcha.force_visual_captcha');
+    }
+
+    /**
      * Validate hidden CAPTCHA
      */
     protected function validateHiddenCaptcha(Request $request): bool
     {
+        $token = $request->input('_captcha_token');
+        $field = $request->input('_captcha_field');
+
+        if (!$token || !$field) {
+            return false;
+        }
+
         try {
-            $token = $request->input('_captcha_token');
-            $fieldValue = $request->input('_captcha_field');
+            $decrypted = decrypt($token);
+            $expectedField = $decrypted['field'] ?? '';
+            $timestamp = $decrypted['timestamp'] ?? 0;
+            $expiry = config('p-captcha.hidden.token_expiry', 3600); // 1 hour default
 
-            if (!$token || !$fieldValue) {
+            // Check if token is expired
+            if ((time() - $timestamp) > $expiry) {
+                if (config('app.debug', false)) {
+                    \Log::info('P-CAPTCHA: Hidden CAPTCHA token expired');
+                }
                 return false;
             }
 
-            $tokenData = decrypt($token);
-
-            // Validate token components
-            if (!isset($tokenData['timestamp'], $tokenData['session_id'], $tokenData['ip'],
-                $tokenData['user_agent'], $tokenData['field_name'])) {
-                return false;
+            // For hidden CAPTCHA, we validate that the field value matches what's expected
+            $isValid = ($expectedField === $field);
+            
+            if ($isValid) {
+                // Clear force visual captcha session flag on successful validation
+                $this->clearForceVisualCaptchaSession();
             }
 
-            // Check session, IP, user agent
-            if ($tokenData['session_id'] !== Session::getId() ||
-                $tokenData['ip'] !== $request->ip() ||
-                $tokenData['user_agent'] !== $request->userAgent()) {
-                return false;
-            }
-
-            // Check field name matches
-            $expectedFieldName = $tokenData['field_name'];
-            if (!$request->has($expectedFieldName) ||
-                $request->input($expectedFieldName) !== $fieldValue) {
-                return false;
-            }
-
-            // Check time limits
-            $now = time();
-            $minTime = config('p-captcha.hidden.min_submit_time', 2);
-            $maxTime = config('p-captcha.hidden.max_submit_time', 1200);
-
-            $elapsed = $now - $tokenData['timestamp'];
-            if ($elapsed < $minTime || $elapsed > $maxTime) {
-                return false;
-            }
-
-            return true;
-
+            return $isValid;
         } catch (\Exception $e) {
+            if (config('app.debug', false)) {
+                \Log::error('P-CAPTCHA: Hidden CAPTCHA validation error', ['error' => $e->getMessage()]);
+            }
             return false;
         }
     }
@@ -400,17 +370,11 @@ class ProtectWithPCaptcha
      */
     protected function validateVisualCaptcha(Request $request): bool
     {
-        $challengeId = $request->input('p_captcha_id');
+        $captchaId = $request->input('p_captcha_id');
         $solution = $request->input('p_captcha_solution');
 
-        // Debug logging (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Visual validation attempt', [
-                'challenge_id' => $challengeId,
-                'solution_raw' => $solution,
-                'solution_type' => gettype($solution),
-                'ip' => $request->ip()
-            ]);
+        if (!$captchaId || !$solution) {
+            return false;
         }
 
         // Handle different solution formats
@@ -430,24 +394,11 @@ class ProtectWithPCaptcha
             $solution = ['answer' => $solution];
         }
 
-        // Debug logging for processed solution (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Processed solution', [
-                'challenge_id' => $challengeId,
-                'solution_processed' => $solution,
-                'ip' => $request->ip()
-            ]);
-        }
-
-        $isValid = $this->captchaService->validateSolution($challengeId, $solution);
-
-        // Debug logging for result (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Validation result', [
-                'challenge_id' => $challengeId,
-                'valid' => $isValid,
-                'ip' => $request->ip()
-            ]);
+        $isValid = $this->captchaService->validateSolution($captchaId, $solution);
+        
+        if ($isValid) {
+            // Clear force visual captcha session flag on successful validation
+            $this->clearForceVisualCaptchaSession();
         }
 
         return $isValid;

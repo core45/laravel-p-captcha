@@ -399,4 +399,140 @@ class ProtectWithPCaptchaTest extends TestCase
         // Should allow through as no suspicious words are configured
         $this->assertEquals('Success', $response->getContent());
     }
+
+    public function test_suspicious_words_detection_requires_visual_captcha()
+    {
+        // Configure suspicious words
+        config(['p-captcha.suspicious_words' => ['spam', 'test', 'bot']]);
+        config(['p-captcha.force_visual_captcha' => false]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John',
+            'email' => 'john@example.com',
+            'message' => 'spam' // This should trigger suspicious words detection
+        ]);
+
+        $middleware = new ProtectWithPCaptcha($this->service);
+        $response = $middleware->handle($request, function ($req) {
+            return response('success');
+        });
+
+        // Should require visual CAPTCHA due to suspicious words
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('p-captcha-container', $response->getContent());
+        $this->assertStringContainsString('Please complete the verification challenge', $response->getContent());
+        
+        // Check that session flag was set
+        $this->assertTrue(session('p-captcha.force_visual_captcha', false));
+    }
+
+    public function test_suspicious_words_detection_case_insensitive()
+    {
+        // Configure suspicious words
+        config(['p-captcha.suspicious_words' => ['SPAM', 'Test', 'BOT']]);
+        config(['p-captcha.force_visual_captcha' => false]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John',
+            'email' => 'john@example.com',
+            'message' => 'spam' // Should match 'SPAM' (case-insensitive)
+        ]);
+
+        $middleware = new ProtectWithPCaptcha($this->service);
+        $response = $middleware->handle($request, function ($req) {
+            return response('success');
+        });
+
+        // Should require visual CAPTCHA due to suspicious words
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('p-captcha-container', $response->getContent());
+        
+        // Check that session flag was set
+        $this->assertTrue(session('p-captcha.force_visual_captcha', false));
+    }
+
+    public function test_suspicious_words_partial_match_does_not_trigger()
+    {
+        // Configure suspicious words
+        config(['p-captcha.suspicious_words' => ['spam', 'test', 'bot']]);
+        config(['p-captcha.force_visual_captcha' => false]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John',
+            'email' => 'john@example.com',
+            'message' => 'spammy message' // Contains 'spam' but not exact match
+        ]);
+
+        $middleware = new ProtectWithPCaptcha($this->service);
+        $response = $middleware->handle($request, function ($req) {
+            return response('success');
+        });
+
+        // Should not require visual CAPTCHA for partial matches
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringNotContainsString('p-captcha-container', $response->getContent());
+        
+        // Check that session flag was not set
+        $this->assertFalse(session('p-captcha.force_visual_captcha', false));
+    }
+
+    public function test_suspicious_words_ignored_when_force_visual_captcha_true()
+    {
+        // Configure suspicious words and force visual captcha
+        config(['p-captcha.suspicious_words' => ['spam', 'test', 'bot']]);
+        config(['p-captcha.force_visual_captcha' => true]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John',
+            'email' => 'john@example.com',
+            'message' => 'spam' // This would normally trigger suspicious words detection
+        ]);
+
+        $middleware = new ProtectWithPCaptcha($this->service);
+        $response = $middleware->handle($request, function ($req) {
+            return response('success');
+        });
+
+        // Should require visual CAPTCHA due to force_visual_captcha config, not suspicious words
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('p-captcha-container', $response->getContent());
+        
+        // Session flag should not be set when force_visual_captcha is true in config
+        $this->assertFalse(session('p-captcha.force_visual_captcha', false));
+    }
+
+    public function test_suspicious_words_session_flag_cleared_after_successful_validation()
+    {
+        // Configure suspicious words
+        config(['p-captcha.suspicious_words' => ['spam', 'test', 'bot']]);
+        config(['p-captcha.force_visual_captcha' => false]);
+
+        // Set session flag manually
+        session(['p-captcha.force_visual_captcha' => true]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John',
+            'email' => 'john@example.com',
+            'message' => 'Hello world',
+            'p_captcha_id' => 'test-id',
+            'p_captcha_solution' => 'test-solution'
+        ]);
+
+        // Mock successful validation
+        $this->service->shouldReceive('validateSolution')
+            ->with('test-id', ['answer' => 'test-solution'])
+            ->andReturn(true);
+
+        $middleware = new ProtectWithPCaptcha($this->service);
+        $response = $middleware->handle($request, function ($req) {
+            return response('success');
+        });
+
+        // Should succeed and clear session flag
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringNotContainsString('p-captcha-container', $response->getContent());
+        
+        // Check that session flag was cleared
+        $this->assertFalse(session('p-captcha.force_visual_captcha', false));
+    }
 }
