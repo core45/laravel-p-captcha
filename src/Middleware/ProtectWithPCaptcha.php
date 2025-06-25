@@ -245,11 +245,9 @@ class ProtectWithPCaptcha
         $challenge = $request->input('p_captcha_challenge');
         $response = $request->input('p_captcha_response');
 
+        // If no visual captcha data provided, require it
         if (!$challenge || !$response) {
-            return response()->json([
-                'error' => __('p-captcha::p-captcha.visual_captcha_required'),
-                'visual_captcha_required' => true
-            ], 422);
+            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.visual_captcha_required'));
         }
 
         // Convert response to array format expected by validateSolution
@@ -258,15 +256,12 @@ class ProtectWithPCaptcha
         $isValid = $this->captchaService->validateSolution($challenge, $solution);
 
         if (!$isValid) {
-            return response()->json([
-                'error' => __('p-captcha::p-captcha.invalid_captcha_response'),
-                'visual_captcha_required' => true
-            ], 422);
+            return $this->handleCaptchaFailure($request);
         }
 
         // Clear the visual captcha requirement after successful validation
         $this->setVisualCaptchaRequired(config('p-captcha.force_visual_captcha', false));
-
+        
         return $next($request);
     }
 
@@ -285,10 +280,7 @@ class ProtectWithPCaptcha
         if ($botDetected) {
             // If bot detected, require visual captcha
             $this->setVisualCaptchaRequired(true);
-            return response()->json([
-                'error' => __('p-captcha::p-captcha.suspicious_activity_detected'),
-                'visual_captcha_required' => true
-            ], 422);
+            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.suspicious_activity_detected'));
         }
 
         return $next($request);
