@@ -34,14 +34,18 @@ class ProtectWithPCaptcha
 
         // First check for bot behavior using hidden validation
         $botDetected = $this->detectBotBehavior($request);
+        
+        // Check for suspicious words separately
+        $suspiciousWordsDetected = $this->checkSuspiciousWords($request);
 
         // Check if visual CAPTCHA validation is required
-        $visualCaptchaRequired = $this->isVisualCaptchaRequired($request, $botDetected);
+        $visualCaptchaRequired = $this->isVisualCaptchaRequired($request, $botDetected, $suspiciousWordsDetected);
 
         // Debug logging (only when APP_DEBUG is enabled)
         if (config('app.debug', false)) {
             \Log::info('P-CAPTCHA: Middleware decision', [
                 'bot_detected' => $botDetected,
+                'suspicious_words_detected' => $suspiciousWordsDetected,
                 'visual_captcha_required' => $visualCaptchaRequired,
                 'force_visual_captcha' => config('p-captcha.force_visual_captcha', false),
                 'has_hidden_data' => $this->hasHiddenCaptchaData($request),
@@ -51,19 +55,19 @@ class ProtectWithPCaptcha
             ]);
         }
 
-        // If no CAPTCHA is required and no bot detected, allow through
-        if (!$visualCaptchaRequired && !$botDetected) {
+        // If no CAPTCHA is required and no bot detected and no suspicious words, allow through
+        if (!$visualCaptchaRequired && !$botDetected && !$suspiciousWordsDetected) {
             // Normal user with no suspicious behavior - allow through
             return $next($request);
         }
 
-        // If bot detected but no visual CAPTCHA provided, require it immediately
-        if ($botDetected && !$this->hasVisualCaptchaData($request)) {
+        // If bot detected or suspicious words detected but no visual CAPTCHA provided, require it immediately
+        if (($botDetected || $suspiciousWordsDetected) && !$this->hasVisualCaptchaData($request)) {
             return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.suspicious_activity_detected'));
         }
 
-        // If bot detected and visual CAPTCHA data is provided, validate it
-        if ($botDetected && $this->hasVisualCaptchaData($request)) {
+        // If bot detected or suspicious words detected and visual CAPTCHA data is provided, validate it
+        if (($botDetected || $suspiciousWordsDetected) && $this->hasVisualCaptchaData($request)) {
             $isValid = $this->validateVisualCaptcha($request);
             if ($isValid) {
                 // CAPTCHA passed, continue with request
@@ -74,8 +78,8 @@ class ProtectWithPCaptcha
             }
         }
 
-        // Handle cases where visual CAPTCHA is required but not due to bot detection
-        if ($visualCaptchaRequired && !$botDetected) {
+        // Handle cases where visual CAPTCHA is required but not due to bot detection or suspicious words
+        if ($visualCaptchaRequired && !$botDetected && !$suspiciousWordsDetected) {
             if ($this->hasVisualCaptchaData($request)) {
                 $isValid = $this->validateVisualCaptcha($request);
                 if ($isValid) {
@@ -88,20 +92,20 @@ class ProtectWithPCaptcha
             }
         }
 
-        // Validate hidden CAPTCHA if present (only for non-bot cases)
-        if (!$botDetected && $this->hasHiddenCaptchaData($request)) {
+        // Validate hidden CAPTCHA if present (only for non-bot, non-suspicious cases)
+        if (!$botDetected && !$suspiciousWordsDetected && $this->hasHiddenCaptchaData($request)) {
             if (!$this->validateHiddenCaptcha($request)) {
                 // Hidden CAPTCHA failed - require visual CAPTCHA
                 return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
             }
         }
 
-        // If we get here and no bot detected, allow through (hidden CAPTCHA passed or not required)
-        if (!$botDetected) {
+        // If we get here and no bot detected and no suspicious words, allow through (hidden CAPTCHA passed or not required)
+        if (!$botDetected && !$suspiciousWordsDetected) {
             return $next($request);
         }
 
-        // Fallback: if bot detected but we somehow got here, require visual CAPTCHA
+        // Fallback: if bot detected or suspicious words but we somehow got here, require visual CAPTCHA
         return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.suspicious_activity_detected'));
     }
 
@@ -144,15 +148,6 @@ class ProtectWithPCaptcha
                 \Log::info('P-CAPTCHA: Bot detected - suspicious user agent', [
                     'user_agent' => $request->userAgent()
                 ]);
-            }
-            return true;
-        }
-
-        // Check for suspicious words in form fields
-        $suspiciousWords = $this->checkSuspiciousWords($request);
-        if ($suspiciousWords) {
-            if (config('app.debug', false)) {
-                \Log::info('P-CAPTCHA: Bot detected - suspicious words found in form fields');
             }
             return true;
         }
@@ -284,9 +279,6 @@ class ProtectWithPCaptcha
                             ]);
                         }
                         
-                        // Temporarily set force_visual_captcha to true for this request
-                        config(['p-captcha.force_visual_captcha' => true]);
-                        
                         return true;
                     }
                 }
@@ -299,7 +291,7 @@ class ProtectWithPCaptcha
     /**
      * Check if visual CAPTCHA is required
      */
-    protected function isVisualCaptchaRequired(Request $request, bool $botDetected): bool
+    protected function isVisualCaptchaRequired(Request $request, bool $botDetected, bool $suspiciousWordsDetected): bool
     {
         // Check if visual CAPTCHA is forced in config
         $forceVisual = config('p-captcha.force_visual_captcha', false);
@@ -310,9 +302,9 @@ class ProtectWithPCaptcha
             return true;
         }
 
-        if ($botDetected) {
+        if ($botDetected || $suspiciousWordsDetected) {
             if (config('app.debug', false)) {
-                \Log::info('P-CAPTCHA: Visual CAPTCHA required - bot detected');
+                \Log::info('P-CAPTCHA: Visual CAPTCHA required - bot detected or suspicious words detected');
             }
             return true;
         }
