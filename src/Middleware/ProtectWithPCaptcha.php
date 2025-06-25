@@ -57,26 +57,14 @@ class ProtectWithPCaptcha
             return $next($request);
         }
 
-        // If bot detected but no visual CAPTCHA provided, require it
+        // If bot detected but no visual CAPTCHA provided, require it immediately
         if ($botDetected && !$this->hasVisualCaptchaData($request)) {
             return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.suspicious_activity_detected'));
         }
 
-        // Validate hidden CAPTCHA if present
-        if ($this->hasHiddenCaptchaData($request)) {
-            if (!$this->validateHiddenCaptcha($request)) {
-                // Hidden CAPTCHA failed - require visual CAPTCHA
-                return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
-            }
-        } else {
-            // No hidden CAPTCHA data, require visual CAPTCHA
-            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
-        }
-
-        // Validate visual CAPTCHA only if it's required or if data is present
-        if ($visualCaptchaRequired && $this->hasVisualCaptchaData($request)) {
+        // If bot detected and visual CAPTCHA data is provided, validate it
+        if ($botDetected && $this->hasVisualCaptchaData($request)) {
             $isValid = $this->validateVisualCaptcha($request);
-
             if ($isValid) {
                 // CAPTCHA passed, continue with request
                 return $next($request);
@@ -86,17 +74,35 @@ class ProtectWithPCaptcha
             }
         }
 
-        // If visual CAPTCHA is required but not provided
-        if ($visualCaptchaRequired && !$this->hasVisualCaptchaData($request)) {
-            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
+        // Handle cases where visual CAPTCHA is required but not due to bot detection
+        if ($visualCaptchaRequired && !$botDetected) {
+            if ($this->hasVisualCaptchaData($request)) {
+                $isValid = $this->validateVisualCaptcha($request);
+                if ($isValid) {
+                    return $next($request);
+                } else {
+                    return $this->handleCaptchaFailure($request);
+                }
+            } else {
+                return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
+            }
         }
 
-        // If we get here, some form of CAPTCHA is required
-        if ($botDetected) {
-            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
-        } else {
-            return $this->requireHiddenCaptcha($request);
+        // Validate hidden CAPTCHA if present (only for non-bot cases)
+        if (!$botDetected && $this->hasHiddenCaptchaData($request)) {
+            if (!$this->validateHiddenCaptcha($request)) {
+                // Hidden CAPTCHA failed - require visual CAPTCHA
+                return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
+            }
         }
+
+        // If we get here and no bot detected, allow through (hidden CAPTCHA passed or not required)
+        if (!$botDetected) {
+            return $next($request);
+        }
+
+        // Fallback: if bot detected but we somehow got here, require visual CAPTCHA
+        return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.suspicious_activity_detected'));
     }
 
     /**

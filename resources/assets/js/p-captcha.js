@@ -584,4 +584,109 @@ document.addEventListener('DOMContentLoaded', function() {
     containers.forEach(container => {
         PCaptcha.init(container.id);
     });
+
+    // Handle form submissions and middleware responses
+    setupFormHandling();
 });
+
+// Setup form submission handling for middleware responses
+function setupFormHandling() {
+    // Intercept all form submissions
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        
+        // Skip if it's not a regular form submission (e.g., AJAX)
+        if (form.hasAttribute('data-ajax') || form.hasAttribute('data-no-captcha-handling')) {
+            return;
+        }
+
+        // Store original submit handler
+        const originalSubmit = form.onsubmit;
+        
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            
+            try {
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: form.method || 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.status === 422) {
+                    const data = await response.json();
+                    
+                    // Check if visual CAPTCHA is required
+                    if (data.visual_captcha_required) {
+                        console.log('P-CAPTCHA: Visual CAPTCHA required by middleware');
+                        
+                        // Find CAPTCHA container in the form
+                        const captchaContainer = form.querySelector('.p-captcha-container');
+                        if (captchaContainer) {
+                            const containerId = captchaContainer.id;
+                            
+                            // Initialize CAPTCHA if not already done
+                            if (!PCaptcha.instances[containerId]) {
+                                PCaptcha.init(containerId);
+                            }
+                            
+                            // Show the CAPTCHA
+                            captchaContainer.style.display = 'block';
+                            captchaContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            
+                            // Show error message
+                            if (data.message) {
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'alert alert-danger';
+                                errorDiv.textContent = data.message;
+                                form.insertBefore(errorDiv, form.firstChild);
+                            }
+                            
+                            return false;
+                        }
+                    }
+                    
+                    // Handle other validation errors
+                    if (data.errors) {
+                        Object.keys(data.errors).forEach(field => {
+                            const input = form.querySelector(`[name="${field}"]`);
+                            if (input) {
+                                input.classList.add('is-invalid');
+                                const feedback = input.parentNode.querySelector('.invalid-feedback') || 
+                                               document.createElement('div');
+                                feedback.className = 'invalid-feedback';
+                                feedback.textContent = data.errors[field][0];
+                                if (!input.parentNode.querySelector('.invalid-feedback')) {
+                                    input.parentNode.appendChild(feedback);
+                                }
+                            }
+                        });
+                    }
+                    
+                    return false;
+                }
+                
+                if (response.ok) {
+                    // Success - submit the form normally
+                    if (originalSubmit) {
+                        return originalSubmit.call(form, e);
+                    } else {
+                        // For successful responses, we might want to redirect or show success message
+                        const data = await response.json();
+                        if (data.redirect) {
+                            window.location.href = data.redirect;
+                        } else if (data.message) {
+                            alert(data.message);
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error('P-CAPTCHA: Form submission error', error);
+            }
+        };
+    });
+}
