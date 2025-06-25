@@ -20,18 +20,6 @@ return [
      */
     'force_visual_captcha' => false, // Set to true to always show visual challenges
 
-    /**
-     * Suspicious words filter
-     * 
-     * If any of these words/sentences are detected in form fields and force_visual_captcha is false,
-     * the CAPTCHA will fail on first attempt and require human challenge.
-     * The filter is case-insensitive and requires exact matches (not partial matches).
-     */
-    'suspicious_words' => [
-        'Eric Jones',
-        'Vaigra',
-        // Add more suspicious words/sentences here
-    ],
 
     /**
      * Available challenge types

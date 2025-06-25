@@ -51,11 +51,9 @@ return [
     'failed_to_generate_token' => 'Nie udało się wygenerować tokenu',
 
     // Middleware Messages
-    'suspicious_activity_detected' => 'Wykryto podejrzaną aktywność. Proszę ukończyć weryfikację.',
-    'please_complete_verification_challenge' => 'Proszę ukończyć wyzwanie weryfikacyjne.',
-    'please_complete_form_validation' => 'Proszę ukończyć walidację formularza.',
-    'visual_captcha_required' => 'Wymagana wizualna weryfikacja. Proszę ukończyć wyzwanie.',
-    'invalid_captcha_response' => 'Nieprawidłowa odpowiedź weryfikacyjna. Proszę spróbować ponownie.',
+    'suspicious_activity_detected' => 'Wykryto podejrzaną aktywność. Ukończ weryfikację.',
+    'please_complete_verification_challenge' => 'Ukończ wyzwanie weryfikacyjne.',
+    'please_complete_form_validation' => 'Ukończ walidację formularza.',
 
     // Form Validation Messages
     'there_were_errors_with_submission' => 'Wystąpił błąd z Twoim zgłoszeniem|Wystąpiły :count błędy z Twoim zgłoszeniem',

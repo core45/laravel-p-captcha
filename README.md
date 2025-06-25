@@ -193,44 +193,7 @@ $html = PCaptcha::renderCaptcha('theme=light');
 All CAPTCHA behavior is controlled via the configuration file. Publish the config file:
 
 ```bash
-php artisan vendor:publish --provider="Core45\LaravelPCaptcha\Providers\PCaptchaServiceProvider"
-```
-
-### Key Configuration Options
-
-#### Basic Settings
-
-```php
-'force_visual_captcha' => false, // Set to true to always show visual challenges
-```
-
-#### Suspicious Words Filter
-
-The package includes a suspicious words filter that can automatically trigger CAPTCHA challenges when certain words or phrases are detected in form submissions:
-
-```php
-'suspicious_words' => [
-    'Eric Jones',
-    'Vaigra',
-    // Add more suspicious words/sentences here
-],
-```
-
-**How it works:**
-- When suspicious words are detected in form fields, the system temporarily sets `force_visual_captcha` to `true` for that request
-- This ensures the visual CAPTCHA is always shown when suspicious content is detected
-- The filter is case-insensitive: "Eric Jones" will match "eric jOnes"
-- Only exact matches trigger the filter: "Eric" alone will not trigger if "Eric Jones" is in the list
-- CAPTCHA-related fields (`_captcha_token`, `_captcha_field`, `p_captcha_id`, `p_captcha_solution`) are ignored
-- If `force_visual_captcha` is already `true` in the config, the suspicious words check is skipped
-
-#### Challenge Types
-
-```php
-'challenge_types' => [
-    'beam_alignment',    // Drag beam source to target
-    'sequence_complete', // Complete number sequences
-],
+php artisan vendor:publish --provider="Core45\LaravelPCaptcha\Providers\PCaptchaServiceProvider" --tag="config"
 ```
 
 ## Translations
@@ -291,6 +254,32 @@ The package uses the following translation keys:
 - **Sequence Instructions**: `add_1_to_last_number`, `triple_last_number`, etc.
 - **API Messages**: `too_many_requests_wait`, `failed_to_validate_captcha`, etc.
 - **Middleware Messages**: `suspicious_activity_detected`, `please_complete_verification_challenge`, etc.
+
+### Key Configuration Options
+
+```php
+// config/p-captcha.php
+
+return [
+    // Force visual CAPTCHA to always show (bypasses bot detection)
+    'force_visual_captcha' => false, // Set to true to always show visual challenges
+    
+    // UI/UX settings
+    'ui' => [
+        'theme' => 'light',           // 'dark' or 'light'
+        'show_instructions' => true,
+        'auto_show_after_attempts' => 3,
+    ],
+    
+    // Available challenge types
+    'challenge_types' => [
+        'beam_alignment',    // Drag beam source to target
+        'sequence_complete', // Complete number sequences
+    ],
+    
+    // ... other options
+];
+```
 
 ### Important Settings
 
