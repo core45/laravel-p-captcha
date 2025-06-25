@@ -142,6 +142,15 @@ class ProtectWithPCaptcha
             return true;
         }
 
+        // Check for suspicious words in form fields
+        $suspiciousWords = $this->checkSuspiciousWords($request);
+        if ($suspiciousWords) {
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Bot detected - suspicious words found in form fields');
+            }
+            return true;
+        }
+
         if (config('app.debug', false)) {
             \Log::info('P-CAPTCHA: No bot behavior detected');
         }
@@ -210,14 +219,67 @@ class ProtectWithPCaptcha
     protected function checkSuspiciousUserAgent(Request $request): bool
     {
         $userAgent = $request->userAgent();
-
-        $suspiciousPatterns = [
-            'bot', 'crawl', 'spider', 'scrape', 'curl', 'wget', 'python', 'perl', 'java'
+        
+        // Common bot user agents
+        $botPatterns = [
+            '/bot/i', '/crawler/i', '/spider/i', '/scraper/i', '/curl/i', '/wget/i',
+            '/python/i', '/java/i', '/perl/i', '/ruby/i', '/php/i', '/go-http-client/i'
         ];
 
-        foreach ($suspiciousPatterns as $pattern) {
-            if (stripos($userAgent, $pattern) !== false) {
+        foreach ($botPatterns as $pattern) {
+            if (preg_match($pattern, $userAgent)) {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check for suspicious words in form fields
+     */
+    protected function checkSuspiciousWords(Request $request): bool
+    {
+        // If force_visual_captcha is true, skip suspicious words check
+        if (config('p-captcha.force_visual_captcha', false)) {
+            return false;
+        }
+
+        $suspiciousWords = config('p-captcha.suspicious_words', []);
+        
+        if (empty($suspiciousWords)) {
+            return false;
+        }
+
+        // Get all form input data
+        $allInput = $request->all();
+        
+        // Check each suspicious word against all form fields
+        foreach ($suspiciousWords as $suspiciousWord) {
+            foreach ($allInput as $fieldName => $fieldValue) {
+                // Skip CAPTCHA-related fields
+                if (in_array($fieldName, ['_captcha_token', '_captcha_field', 'p_captcha_id', 'p_captcha_solution'])) {
+                    continue;
+                }
+                
+                // Convert field value to string and check for exact match (case-insensitive)
+                $fieldValueStr = is_array($fieldValue) ? implode(' ', $fieldValue) : (string) $fieldValue;
+                
+                if (stripos($fieldValueStr, $suspiciousWord) !== false) {
+                    // Check if it's an exact match (not just a partial match)
+                    $pattern = '/\b' . preg_quote($suspiciousWord, '/') . '\b/i';
+                    if (preg_match($pattern, $fieldValueStr)) {
+                        if (config('app.debug', false)) {
+                            \Log::info('P-CAPTCHA: Suspicious word detected', [
+                                'suspicious_word' => $suspiciousWord,
+                                'field_name' => $fieldName,
+                                'field_value' => $fieldValueStr,
+                                'ip' => $request->ip()
+                            ]);
+                        }
+                        return true;
+                    }
+                }
             }
         }
 

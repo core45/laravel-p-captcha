@@ -263,20 +263,140 @@ class ProtectWithPCaptchaTest extends TestCase
             return response('Success');
         };
 
-        // Set attempt count below new threshold
+        // Set attempt count to 4 (below new threshold)
         Cache::put('form_attempts:test-session-123', 4, 3600);
 
         $response = $this->middleware->handle($request, $next);
 
-        // Should allow through (not require CAPTCHA yet)
+        // Should allow through
         $this->assertEquals('Success', $response->getContent());
+    }
 
-        // Set attempt count at threshold
-        Cache::put('form_attempts:test-session-123', 5, 3600);
+    /** @test */
+    public function it_detects_suspicious_words_in_form_fields()
+    {
+        config(['p-captcha.suspicious_words' => ['Eric Jones', 'Vaigra']]);
+        config(['p-captcha.force_visual_captcha' => false]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John Doe',
+            'message' => 'Hello Eric Jones, how are you?'
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
 
         $response = $this->middleware->handle($request, $next);
 
-        // Should now require CAPTCHA
+        // Should require visual CAPTCHA due to suspicious word
         $this->assertEquals(302, $response->getStatusCode());
+    }
+
+    /** @test */
+    public function it_detects_suspicious_words_case_insensitive()
+    {
+        config(['p-captcha.suspicious_words' => ['Eric Jones', 'Vaigra']]);
+        config(['p-captcha.force_visual_captcha' => false]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John Doe',
+            'message' => 'Hello eric jOnes, how are you?'
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should require visual CAPTCHA due to suspicious word (case insensitive)
+        $this->assertEquals(302, $response->getStatusCode());
+    }
+
+    /** @test */
+    public function it_does_not_trigger_on_partial_matches()
+    {
+        config(['p-captcha.suspicious_words' => ['Eric Jones', 'Vaigra']]);
+        config(['p-captcha.force_visual_captcha' => false]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John Doe',
+            'message' => 'Hello Eric, how are you?'
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should allow through as only "Eric" is present, not "Eric Jones"
+        $this->assertEquals('Success', $response->getContent());
+    }
+
+    /** @test */
+    public function it_skips_suspicious_words_check_when_force_visual_captcha_is_true()
+    {
+        config(['p-captcha.suspicious_words' => ['Eric Jones', 'Vaigra']]);
+        config(['p-captcha.force_visual_captcha' => true]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John Doe',
+            'message' => 'Hello Eric Jones, how are you?'
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should require visual CAPTCHA due to force_visual_captcha being true, not suspicious words
+        $this->assertEquals(302, $response->getStatusCode());
+    }
+
+    /** @test */
+    public function it_ignores_captcha_fields_when_checking_suspicious_words()
+    {
+        config(['p-captcha.suspicious_words' => ['Eric Jones', 'Vaigra']]);
+        config(['p-captcha.force_visual_captcha' => false]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John Doe',
+            'message' => 'Hello, how are you?',
+            '_captcha_token' => 'Eric Jones token',
+            'p_captcha_solution' => 'Vaigra solution'
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should allow through as suspicious words are only in CAPTCHA fields
+        $this->assertEquals('Success', $response->getContent());
+    }
+
+    /** @test */
+    public function it_handles_empty_suspicious_words_config()
+    {
+        config(['p-captcha.suspicious_words' => []]);
+        config(['p-captcha.force_visual_captcha' => false]);
+
+        $request = Request::create('/test', 'POST', [
+            'name' => 'John Doe',
+            'message' => 'Hello Eric Jones, how are you?'
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should allow through as no suspicious words are configured
+        $this->assertEquals('Success', $response->getContent());
     }
 }
