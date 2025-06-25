@@ -51,9 +51,11 @@ return [
     'failed_to_generate_token' => 'Error al generar token',
     
     // Middleware Messages
-    'suspicious_activity_detected' => 'Actividad sospechosa detectada. Completa la verificación.',
-    'please_complete_verification_challenge' => 'Por favor completa el desafío de verificación.',
-    'please_complete_form_validation' => 'Por favor completa la validación del formulario.',
+    'suspicious_activity_detected' => 'Actividad sospechosa detectada. Por favor complete la verificación.',
+    'please_complete_verification_challenge' => 'Por favor complete el desafío de verificación.',
+    'please_complete_form_validation' => 'Por favor complete la validación del formulario.',
+    'visual_captcha_required' => 'Verificación visual requerida. Por favor complete el desafío.',
+    'invalid_captcha_response' => 'Respuesta de verificación inválida. Por favor intente de nuevo.',
     
     // Form Validation Messages
     'there_were_errors_with_submission' => 'Hubo un error con tu envío|Hubo :count errores con tu envío',

@@ -54,6 +54,8 @@ return [
     'suspicious_activity_detected' => 'Suspicious activity detected. Please complete verification.',
     'please_complete_verification_challenge' => 'Please complete the verification challenge.',
     'please_complete_form_validation' => 'Please complete the form validation.',
+    'visual_captcha_required' => 'Visual verification required. Please complete the challenge.',
+    'invalid_captcha_response' => 'Invalid verification response. Please try again.',
     
     // Form Validation Messages
     'there_were_errors_with_submission' => 'There were :count error(s) with your submission',
