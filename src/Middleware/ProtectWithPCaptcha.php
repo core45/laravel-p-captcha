@@ -283,6 +283,10 @@ class ProtectWithPCaptcha
                                 'ip' => $request->ip()
                             ]);
                         }
+                        
+                        // Temporarily set force_visual_captcha to true for this request
+                        config(['p-captcha.force_visual_captcha' => true]);
+                        
                         return true;
                     }
                 }

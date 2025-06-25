@@ -217,11 +217,12 @@ The package includes a suspicious words filter that can automatically trigger CA
 ```
 
 **How it works:**
-- If `force_visual_captcha` is `false` and any suspicious word is detected in form fields, the CAPTCHA will fail on first attempt and require a human challenge
-- If `force_visual_captcha` is `true`, the suspicious words filter is disabled (since users are already challenged)
+- When suspicious words are detected in form fields, the system temporarily sets `force_visual_captcha` to `true` for that request
+- This ensures the visual CAPTCHA is always shown when suspicious content is detected
 - The filter is case-insensitive: "Eric Jones" will match "eric jOnes"
 - Only exact matches trigger the filter: "Eric" alone will not trigger if "Eric Jones" is in the list
 - CAPTCHA-related fields (`_captcha_token`, `_captcha_field`, `p_captcha_id`, `p_captcha_solution`) are ignored
+- If `force_visual_captcha` is already `true` in the config, the suspicious words check is skipped
 
 #### Challenge Types
 
