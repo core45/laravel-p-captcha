@@ -58,7 +58,7 @@
     };
 
     // Pass translations to JavaScript - properly escaped using @json
-    window.pCaptchaTranslations = @json($translations);
+    window.pCaptchaTranslations = {!! json_encode($translations) !!};
 
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof PCaptcha !== 'undefined') {
