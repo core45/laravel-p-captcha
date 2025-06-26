@@ -57,25 +57,8 @@
         enabled: {{ config('app.debug', false) ? 'true' : 'false' }}
     };
 
-    // Pass translations to JavaScript
-    window.pCaptchaTranslations = {
-        'human_verification': '{{ $translations['human_verification'] }}',
-        'loading_challenge': '{{ $translations['loading_challenge'] }}',
-        'initializing_secure_challenge': '{{ $translations['initializing_secure_challenge'] }}',
-        'new_challenge': '{{ $translations['new_challenge'] }}',
-        'validate': '{{ $translations['validate'] }}',
-        'complete_challenge_below': '{{ $translations['complete_challenge_below'] }}',
-        'beam_aligned': '{{ $translations['beam_aligned'] }}',
-        'validating': '{{ $translations['validating'] }}',
-        'captcha_verified_successfully': '{{ $translations['captcha_verified_successfully'] }}',
-        'captcha_solved_successfully': '{{ $translations['captcha_solved_successfully'] }}',
-        'invalid_captcha_solution': '{{ $translations['invalid_captcha_solution'] }}',
-        'failed_to_load_challenge': '{{ $translations['failed_to_load_challenge'] }}',
-        'unknown_challenge_type': '{{ $translations['unknown_challenge_type'] }}',
-        'please_complete_challenge_first': '{{ $translations['please_complete_challenge_first'] }}',
-        'invalid_solution_try_again': '{{ $translations['invalid_solution_try_again'] }}',
-        'network_error_try_again': '{{ $translations['network_error_try_again'] }}'
-    };
+    // Pass translations to JavaScript - properly escaped using @json
+    window.pCaptchaTranslations = @json($translations);
 
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof PCaptcha !== 'undefined') {
