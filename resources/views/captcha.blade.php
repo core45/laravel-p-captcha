@@ -57,7 +57,7 @@
         enabled: {{ config('app.debug', false) ? 'true' : 'false' }}
     };
 
-    // Pass translations to JavaScript - properly escaped using @json
+    // Pass translations to JavaScript
     window.pCaptchaTranslations = {!! json_encode($translations) !!};
 
     document.addEventListener('DOMContentLoaded', function() {
