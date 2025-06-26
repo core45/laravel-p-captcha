@@ -42,7 +42,7 @@ return [
     'multiply_last_number_by_ratio' => 'Multiply the last number (:number) by :ratio to get the next number.',
     
     // API Messages
-    'too_many_requests_wait' => 'Too many requests. Please wait before generating new challenges.',
+    'too_many_requests_wait' => 'Too many requests. Please wait :seconds seconds before generating new challenges.',
     'too_many_validation_attempts_wait' => 'Too many validation attempts. Please wait.',
     'failed_to_generate_captcha_challenge' => 'Failed to generate CAPTCHA challenge',
     'invalid_request_data' => 'Invalid request data',

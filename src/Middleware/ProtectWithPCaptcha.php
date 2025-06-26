@@ -57,12 +57,42 @@ class ProtectWithPCaptcha
             return $next($request);
         }
 
-        // If bot detected but no visual CAPTCHA provided, require it
-        if ($botDetected && !$this->hasVisualCaptchaData($request)) {
-            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.suspicious_activity_detected'));
+        // If visual CAPTCHA is required (either forced or due to bot detection)
+        if ($visualCaptchaRequired) {
+            // Check if user is rate limited
+            if ($this->isRateLimited($request)) {
+                $remainingTime = $this->getRateLimitRemainingTime($request);
+                $message = __('p-captcha::p-captcha.too_many_requests_wait', ['seconds' => $remainingTime]);
+                
+                if (config('app.debug', false)) {
+                    \Log::info('P-CAPTCHA: Rate limited user attempting form submission', [
+                        'ip' => $request->ip(),
+                        'remaining_time' => $remainingTime
+                    ]);
+                }
+                
+                return $this->requireVisualCaptcha($request, $message);
+            }
+            
+            // If visual CAPTCHA data is provided, validate it
+            if ($this->hasVisualCaptchaData($request)) {
+                $isValid = $this->validateVisualCaptcha($request);
+
+                if ($isValid) {
+                    // CAPTCHA passed, continue with request
+                    return $next($request);
+                } else {
+                    // CAPTCHA failed
+                    return $this->handleCaptchaFailure($request);
+                }
+            } else {
+                // Visual CAPTCHA required but not provided
+                return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
+            }
         }
 
-        // Validate hidden CAPTCHA if present
+        // If we get here, visual CAPTCHA is not required but bot detection might be active
+        // Validate hidden CAPTCHA if present (only when visual CAPTCHA is not forced)
         if ($this->hasHiddenCaptchaData($request)) {
             if (!$this->validateHiddenCaptcha($request)) {
                 // Hidden CAPTCHA failed - require visual CAPTCHA
@@ -70,24 +100,6 @@ class ProtectWithPCaptcha
             }
         } else {
             // No hidden CAPTCHA data, require visual CAPTCHA
-            return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
-        }
-
-        // Validate visual CAPTCHA only if it's required or if data is present
-        if ($visualCaptchaRequired && $this->hasVisualCaptchaData($request)) {
-            $isValid = $this->validateVisualCaptcha($request);
-
-            if ($isValid) {
-                // CAPTCHA passed, continue with request
-                return $next($request);
-            } else {
-                // CAPTCHA failed
-                return $this->handleCaptchaFailure($request);
-            }
-        }
-
-        // If visual CAPTCHA is required but not provided
-        if ($visualCaptchaRequired && !$this->hasVisualCaptchaData($request)) {
             return $this->requireVisualCaptcha($request, __('p-captcha::p-captcha.please_complete_verification_challenge'));
         }
 
@@ -264,6 +276,34 @@ class ProtectWithPCaptcha
     }
 
     /**
+     * Check if user is rate limited for CAPTCHA generation
+     */
+    protected function isRateLimited(Request $request): bool
+    {
+        $key = 'p-captcha-generate:' . $request->ip();
+        $rateLimits = config('p-captcha.rate_limits.generate', [
+            'max_attempts' => 10,
+            'decay_minutes' => 1
+        ]);
+
+        return \Illuminate\Support\Facades\RateLimiter::tooManyAttempts($key, $rateLimits['max_attempts']);
+    }
+
+    /**
+     * Get remaining time for rate limit
+     */
+    protected function getRateLimitRemainingTime(Request $request): int
+    {
+        $key = 'p-captcha-generate:' . $request->ip();
+        $rateLimits = config('p-captcha.rate_limits.generate', [
+            'max_attempts' => 10,
+            'decay_minutes' => 1
+        ]);
+
+        return \Illuminate\Support\Facades\RateLimiter::availableIn($key);
+    }
+
+    /**
      * Check if request contains hidden CAPTCHA data
      */
     protected function hasHiddenCaptchaData(Request $request): bool
@@ -276,7 +316,10 @@ class ProtectWithPCaptcha
      */
     protected function hasVisualCaptchaData(Request $request): bool
     {
-        return $request->has('p_captcha_id') && $request->has('p_captcha_solution');
+        $challengeId = $request->input('p_captcha_id');
+        $solution = $request->input('p_captcha_solution');
+        
+        return !empty($challengeId) && !empty($solution);
     }
 
     /**
@@ -349,6 +392,17 @@ class ProtectWithPCaptcha
             ]);
         }
 
+        // Validate that we have a challenge ID
+        if (empty($challengeId)) {
+            if (config('app.debug', false)) {
+                \Log::warning('P-CAPTCHA: Missing challenge ID in visual validation', [
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent()
+                ]);
+            }
+            return false;
+        }
+
         // Handle different solution formats
         if (is_string($solution)) {
             // Try to decode JSON string
@@ -375,18 +429,29 @@ class ProtectWithPCaptcha
             ]);
         }
 
-        $isValid = $this->captchaService->validateSolution($challengeId, $solution);
+        try {
+            $isValid = $this->captchaService->validateSolution($challengeId, $solution);
 
-        // Debug logging for result (only when APP_DEBUG is enabled)
-        if (config('app.debug', false)) {
-            \Log::info('P-CAPTCHA: Validation result', [
-                'challenge_id' => $challengeId,
-                'valid' => $isValid,
-                'ip' => $request->ip()
-            ]);
+            // Debug logging for result (only when APP_DEBUG is enabled)
+            if (config('app.debug', false)) {
+                \Log::info('P-CAPTCHA: Validation result', [
+                    'challenge_id' => $challengeId,
+                    'valid' => $isValid,
+                    'ip' => $request->ip()
+                ]);
+            }
+
+            return $isValid;
+        } catch (\Exception $e) {
+            if (config('app.debug', false)) {
+                \Log::error('P-CAPTCHA: Validation error', [
+                    'challenge_id' => $challengeId,
+                    'error' => $e->getMessage(),
+                    'ip' => $request->ip()
+                ]);
+            }
+            return false;
         }
-
-        return $isValid;
     }
 
     /**

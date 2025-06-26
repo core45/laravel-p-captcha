@@ -256,27 +256,182 @@ class ProtectWithPCaptchaTest extends TestCase
     /** @test */
     public function it_respects_configuration_for_attempt_threshold()
     {
-        config(['p-captcha.ui.auto_show_after_attempts' => 5]);
-
         $request = Request::create('/test', 'POST');
         $next = function ($req) {
             return response('Success');
         };
 
-        // Set attempt count below new threshold
-        Cache::put('form_attempts:test-session-123', 4, 3600);
-
-        $response = $this->middleware->handle($request, $next);
-
-        // Should allow through (not require CAPTCHA yet)
-        $this->assertEquals('Success', $response->getContent());
+        // Set custom threshold
+        config(['p-captcha.ui.auto_show_after_attempts' => 5]);
 
         // Set attempt count at threshold
         Cache::put('form_attempts:test-session-123', 5, 3600);
 
         $response = $this->middleware->handle($request, $next);
 
-        // Should now require CAPTCHA
+        // Should require CAPTCHA at threshold
+        $this->assertEquals(302, $response->getStatusCode());
+    }
+
+    /** @test */
+    public function it_handles_force_visual_captcha_correctly()
+    {
+        // Enable force visual CAPTCHA
+        config(['p-captcha.force_visual_captcha' => true]);
+
+        // Generate a challenge
+        config(['p-captcha.challenge_types' => ['sequence_complete']]);
+        $challenge = $this->service->generateChallenge();
+
+        $request = Request::create('/test', 'POST', [
+            'p_captcha_id' => $challenge['id'],
+            'p_captcha_solution' => ['answer' => $challenge['solution']]
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        // Ensure no previous attempts
+        Cache::forget('form_attempts:test-session-123');
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should allow through with correct solution even when forced
+        $this->assertEquals('Success', $response->getContent());
+    }
+
+    /** @test */
+    public function it_requires_visual_captcha_when_forced_even_with_hidden_data()
+    {
+        // Enable force visual CAPTCHA
+        config(['p-captcha.force_visual_captcha' => true]);
+
+        $request = Request::create('/test', 'POST', [
+            '_captcha_token' => encrypt([
+                'timestamp' => time() - 5, // Valid timing
+                'session_id' => 'test-session-123',
+                'ip' => '127.0.0.1',
+                'user_agent' => 'test-agent',
+                'field_name' => 'test_field'
+            ]),
+            '_captcha_field' => 'test_value',
+            'test_field' => 'test_value'
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        // Ensure no previous attempts
+        Cache::forget('form_attempts:test-session-123');
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should require visual CAPTCHA even with valid hidden data when forced
+        $this->assertEquals(302, $response->getStatusCode());
+    }
+
+    /** @test */
+    public function it_skips_hidden_captcha_validation_when_visual_forced()
+    {
+        // Enable force visual CAPTCHA
+        config(['p-captcha.force_visual_captcha' => true]);
+
+        // Generate a challenge
+        config(['p-captcha.challenge_types' => ['sequence_complete']]);
+        $challenge = $this->service->generateChallenge();
+
+        $request = Request::create('/test', 'POST', [
+            'p_captcha_id' => $challenge['id'],
+            'p_captcha_solution' => ['answer' => $challenge['solution']],
+            // Include hidden CAPTCHA data that would normally be validated
+            '_captcha_token' => 'invalid-token', // This should be ignored when visual is forced
+            '_captcha_field' => 'test_value'
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        // Ensure no previous attempts
+        Cache::forget('form_attempts:test-session-123');
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should allow through with correct visual solution, ignoring hidden CAPTCHA
+        $this->assertEquals('Success', $response->getContent());
+    }
+
+    /** @test */
+    public function it_handles_null_challenge_id_gracefully()
+    {
+        // Enable force visual CAPTCHA
+        config(['p-captcha.force_visual_captcha' => true]);
+
+        $request = Request::create('/test', 'POST', [
+            'p_captcha_id' => null, // Null challenge ID
+            'p_captcha_solution' => ['answer' => 'any']
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        // Ensure no previous attempts
+        Cache::forget('form_attempts:test-session-123');
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should return error response instead of throwing 500
+        $this->assertEquals(302, $response->getStatusCode());
+    }
+
+    /** @test */
+    public function it_handles_empty_challenge_id_gracefully()
+    {
+        // Enable force visual CAPTCHA
+        config(['p-captcha.force_visual_captcha' => true]);
+
+        $request = Request::create('/test', 'POST', [
+            'p_captcha_id' => '', // Empty challenge ID
+            'p_captcha_solution' => ['answer' => 'any']
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        // Ensure no previous attempts
+        Cache::forget('form_attempts:test-session-123');
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should return error response instead of throwing 500
+        $this->assertEquals(302, $response->getStatusCode());
+    }
+
+    /** @test */
+    public function it_handles_missing_challenge_id_gracefully()
+    {
+        // Enable force visual CAPTCHA
+        config(['p-captcha.force_visual_captcha' => true]);
+
+        $request = Request::create('/test', 'POST', [
+            // No p_captcha_id field at all
+            'p_captcha_solution' => ['answer' => 'any']
+        ]);
+
+        $next = function ($req) {
+            return response('Success');
+        };
+
+        // Ensure no previous attempts
+        Cache::forget('form_attempts:test-session-123');
+
+        $response = $this->middleware->handle($request, $next);
+
+        // Should return error response instead of throwing 500
         $this->assertEquals(302, $response->getStatusCode());
     }
 }
