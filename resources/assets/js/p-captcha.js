@@ -150,12 +150,9 @@ class PCaptchaWidget {
         const data = this.currentChallenge.challenge_data;
 
         this.challengeEl.innerHTML = `
-            <div class="beam-canvas" id="${this.containerId}-beam-canvas"
-                 style="width: ${data.canvas_width}px; height: ${data.canvas_height}px;">
-                <div class="beam-source" id="${this.containerId}-beam-source"
-                     style="left: ${data.source.x}px; top: ${data.source.y}px;"></div>
-                <div class="beam-target" id="${this.containerId}-beam-target"
-                     style="left: ${data.target.x}px; top: ${data.target.y}px;"></div>
+            <div class="beam-canvas" id="${this.containerId}-beam-canvas">
+                <div class="beam-source" id="${this.containerId}-beam-source"></div>
+                <div class="beam-target" id="${this.containerId}-beam-target"></div>
             </div>
         `;
 
@@ -166,6 +163,22 @@ class PCaptchaWidget {
         const canvas = this.containerEl.querySelector(`#${this.containerId}-beam-canvas`);
         const source = this.containerEl.querySelector(`#${this.containerId}-beam-source`);
         const target = this.containerEl.querySelector(`#${this.containerId}-beam-target`);
+        const data = this.currentChallenge.challenge_data;
+
+        // Calculate proportional positions based on actual canvas size
+        const scaleX = canvas.offsetWidth / data.canvas_width;
+        const scaleY = canvas.offsetHeight / data.canvas_height;
+
+        // Set initial positions proportionally
+        const sourceX = Math.round(data.source.x * scaleX);
+        const sourceY = Math.round(data.source.y * scaleY);
+        const targetX = Math.round(data.target.x * scaleX);
+        const targetY = Math.round(data.target.y * scaleY);
+
+        source.style.left = sourceX + 'px';
+        source.style.top = sourceY + 'px';
+        target.style.left = targetX + 'px';
+        target.style.top = targetY + 'px';
 
         let isDragging = false;
         let startX, startY, initialLeft, initialTop;
@@ -242,10 +255,15 @@ class PCaptchaWidget {
 
         if (!source || !target) return;
 
-        const sourceX = parseInt(source.style.left) + 15; // Center of source
-        const sourceY = parseInt(source.style.top) + 15;
-        const targetX = parseInt(target.style.left) + 15; // Center of target
-        const targetY = parseInt(target.style.top) + 15;
+        // Get the actual center positions of the elements
+        const sourceRect = source.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const canvasRect = source.parentNode.getBoundingClientRect();
+
+        const sourceX = sourceRect.left - canvasRect.left + sourceRect.width / 2;
+        const sourceY = sourceRect.top - canvasRect.top + sourceRect.height / 2;
+        const targetX = targetRect.left - canvasRect.left + targetRect.width / 2;
+        const targetY = targetRect.top - canvasRect.top + targetRect.height / 2;
 
         const distance = Math.sqrt(Math.pow(targetX - sourceX, 2) + Math.pow(targetY - sourceY, 2));
         const angle = Math.atan2(targetY - sourceY, targetX - sourceX) * 180 / Math.PI;
@@ -267,12 +285,19 @@ class PCaptchaWidget {
     checkBeamAlignment() {
         const source = this.containerEl.querySelector(`#${this.containerId}-beam-source`);
         const target = this.containerEl.querySelector(`#${this.containerId}-beam-target`);
+        const canvas = this.containerEl.querySelector(`#${this.containerId}-beam-canvas`);
         const data = this.currentChallenge.challenge_data;
+
+        // Calculate scale factors
+        const scaleX = canvas.offsetWidth / data.canvas_width;
+        const scaleY = canvas.offsetHeight / data.canvas_height;
 
         const sourceX = parseInt(source.style.left);
         const sourceY = parseInt(source.style.top);
-        const offsetX = sourceX - data.source.x;
-        const offsetY = sourceY - data.source.y;
+        
+        // Calculate offset in original coordinate system
+        const offsetX = Math.round((sourceX / scaleX) - data.source.x);
+        const offsetY = Math.round((sourceY / scaleY) - data.source.y);
 
         this.solution = { offset_x: offsetX, offset_y: offsetY };
 
